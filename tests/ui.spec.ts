@@ -57,6 +57,21 @@ test('route survives reload and hides all unrelated markers until explicitly sho
   expect(stored.selectedPoiIds).toEqual(['first', 'second']);
 });
 
+test('ready-made walks open from the map with all ordered stops and survive reload', async ({ page }) => {
+  await page.route('**/api/journeys/**', request => request.fulfill({ json: { available: true, places: [] } }));
+  await page.getByRole('button', { name: 'Готовые прогулки', exact: true }).click();
+  const catalog = page.getByRole('dialog', { name: 'Готовые прогулки', exact: true });
+  await expect(catalog.getByRole('heading', { name: 'Императорский детектив' })).toBeVisible();
+  await catalog.getByRole('button', { name: 'Открыть прогулку' }).first().click();
+  await expect(page.getByRole('textbox', { name: 'Название прогулки' })).toHaveValue('Императорский детектив');
+  await expect.poll(() => page.evaluate(() => {
+    const drafts = JSON.parse(localStorage.getItem('private-walks/drafts/v1') || '[]');
+    return drafts.find((draft: { title: string }) => draft.title === 'Императорский детектив')?.selectedPoiIds.length;
+  })).toBe(4);
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'Название прогулки' })).toHaveValue('Императорский детектив');
+});
+
 test('coincident dense cluster opens every point at maximum zoom', async ({ page }) => {
   const dense = { ...saved, id: 'dense_test', selectedPoiIds: [], savedRoute: null,
     savedPois: Array.from({ length: 25 }, (_, index) => ({ ...first, lat: 59.9386, lng: 30.3141, id: `dense-${index}`, name: `Место ${index + 1}` })) };
