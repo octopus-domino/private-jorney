@@ -1,4 +1,5 @@
-export type CodocFetch = (url: string, options?: RequestInit) => Promise<Response>;
+import { createCodocSearchTransport } from './codocSearchTransport';
+export type { CodocFetch } from './codocSearchTransport';
 
-/** Preserves the fetch transport used by the working 1.0.2 APK, including its URL, headers and abort signal. */
-export const codocFetch: CodocFetch = (url, options) => fetch(url, options);
+/** Preserves WebView fetch and cancellation while allowing the server's previous search to release its slot. */
+export const codocFetch = createCodocSearchTransport((url, options) => fetch(url, options));
