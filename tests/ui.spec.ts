@@ -10,6 +10,36 @@ const geometry = [[first.lat, first.lng], [second.lat, second.lng]];
 const route = { geometry, legs: [{ fromIndex: 0, toIndex: 1, geometry, distanceMeters: 1200, durationSeconds: 900 }], totalDistanceMeters: 1200, totalDurationSeconds: 900 };
 const saved = { id: 'walk_test', title: 'Сохранённая прогулка', createdAt: '2026-11-17T00:00:00Z', updatedAt: '2026-11-17T00:00:00Z', area: { anchors: [], radiusMeters: 800 }, selectedCategoryIds: [], selectedPoiIds: ['first', 'second'], view: 'map', savedPois: [first, second, other], savedRoute: route, savedFailedSegments: [] };
 
+test('Avito cards stay visible when map bounds change behind the selected house', async ({ page }, info) => {
+  let requests = 0;
+  await page.route('**/history-source?**', async request => {
+    const url = new URL(new URL(request.request().url()).searchParams.get('url')!);
+    if (url.hostname !== 'www.avito.ru') return request.fallback();
+    requests++;
+    await request.fulfill({ json: { items: [{ id: 8493504075, categoryId: 24, title: 'Квартира в выбранном доме',
+      urlPath: '/sankt-peterburg/kvartiry/kvartira_8493504075',
+      priceDetailed: { value: 18100000, enabled: true, hasValue: true },
+      geo: { formattedAddress: address }, coords: { lat: first.lat, lng: first.lng },
+      realtyInfo: { transactionType: 'sell' } }] } });
+  });
+  if (info.project.name.includes('android')) await page.getByRole('button', { name: '📍 Маршрут', exact: true }).click();
+  await page.locator('.selection__name').first().click();
+  const card = page.getByRole('dialog', { name: 'Информация о точке' });
+  await card.getByRole('tab', { name: 'О доме' }).click();
+  const listing = card.getByRole('region', { name: 'Avito' }).locator('.apartment-card');
+  await expect(listing).toHaveCount(1);
+  const before = requests;
+  await page.evaluate(async () => {
+    const path = '/src/presentation/state/mapViewportStore.ts';
+    const { useMapViewportStore } = await import(path);
+    useMapViewportStore.getState().setArea({ west: 30.26, east: 30.29, south: 59.93, north: 59.95 });
+  });
+  await expect(listing).toHaveCount(1);
+  await page.waitForTimeout(900);
+  await expect(listing).toHaveCount(1);
+  expect(requests).toBe(before);
+});
+
 async function swipeDown(target: Locator, cancel = false) {
   await target.evaluate((element, cancelled) => {
     const box = element.getBoundingClientRect();

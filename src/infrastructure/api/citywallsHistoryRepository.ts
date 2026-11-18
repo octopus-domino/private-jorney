@@ -5,6 +5,9 @@ import { readExternalPage } from './readExternalPage';
 import { createHistoryCache } from './buildingSuccessCaches';
 import type { SuccessCache } from '../../shared/persistentSuccessCache';
 import { SharedRequestPool } from '../../shared/sharedRequestPool';
+import { readCitywallsStage } from './citywallsSourceError';
+import { CitywallsMapCache } from './citywallsMapCache';
+import type { CitywallsPoint } from './citywallsMap';
 
 const SITE = 'https://www.citywalls.ru';
 export class CitywallsHistoryRepository implements PlaceHistoryRepository {
@@ -13,7 +16,8 @@ export class CitywallsHistoryRepository implements PlaceHistoryRepository {
   private readonly sessions = new SharedRequestPool<string>();
   private readonly squareRequests = new SharedRequestPool<ReturnType<typeof parseCitywallsPoints>>();
 
-  constructor(private readonly read = readExternalPage, private readonly cache: SuccessCache<PlaceHistory> = createHistoryCache()) {}
+  constructor(private readonly read = readExternalPage, private readonly cache: SuccessCache<PlaceHistory> = createHistoryCache(),
+    private readonly mapCache: SuccessCache<CitywallsPoint[]> = new CitywallsMapCache()) {}
 
   /** Keeps text/title rerenders from restarting the same building lookup. */
   requestKey(poi: Poi): string { return `${poi.lat}:${poi.lng}:${poi.details?.sourceUrl ?? ''}`; }
@@ -23,21 +27,25 @@ export class CitywallsHistoryRepository implements PlaceHistoryRepository {
   private async session(signal?: AbortSignal): Promise<string> {
     if (this.sid) return this.sid;
     return this.sessions.run('session', async shared => {
-      const html = await this.read(`${SITE}/map_around.html`, shared);
-      const sid = html.match(/SID:\s*["']s=([a-z\d]+)["']/i)?.[1];
-      if (!sid) throw new Error('Citywalls map format changed');
+      const sid = await readCitywallsStage('map', async () => {
+        const html = await this.read(`${SITE}/map_around.html`, shared);
+        const value = html.match(/SID:\s*["']s=([a-z\d]+)["']/i)?.[1];
+        if (!value) throw new Error('Citywalls map format changed');
+        return value;
+      }, shared);
       this.sid = sid;
       return sid;
     }, signal);
   }
 
   private async square(id: number, signal?: AbortSignal) {
-    const cached = this.squares.get(id);
-    if (cached) return cached;
+    const cached = this.squares.get(id) ?? this.mapCache.get(String(id));
+    if (cached) { this.squares.set(id, cached); return cached; }
     return this.squareRequests.run(String(id), async shared => {
       const entries = await this.loadSquare(id, await this.session(shared), shared);
       if (this.squares.size >= 12) this.squares.delete(this.squares.keys().next().value!);
       this.squares.set(id, entries);
+      this.mapCache.set(String(id), entries);
       return entries;
     }, signal);
   }
@@ -61,7 +69,7 @@ export class CitywallsHistoryRepository implements PlaceHistoryRepository {
       matchedTitle = match.title;
     }
     const sourceUrl = `${SITE}/house${houseId}.html`;
-    const doc = new DOMParser().parseFromString(await this.read(sourceUrl, signal), 'text/html');
+    const doc = new DOMParser().parseFromString(await readCitywallsStage('house', () => this.read(sourceUrl, signal), signal), 'text/html');
     const paragraph = Array.from(doc.querySelectorAll('.mceContentBody p'))
       .map((p) => p.textContent?.replace(/\s+/g, ' ').trim() ?? '').filter((text) => text.length >= 80).slice(0, 2).join('\n\n');
     const description = paragraph || doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim();
@@ -85,7 +93,7 @@ export class CitywallsHistoryRepository implements PlaceHistoryRepository {
     for (let attempt = 0; attempt < 2; attempt++) {
       const url = new URL(`${SITE}/include/map_handler.php`);
       url.search = new URLSearchParams({ action: 'load_geodata_cache', list: 'al', square: String(square), zoom: '15', s: sid }).toString();
-      const data = JSON.parse(await this.read(url.href, signal));
+      const data = await readCitywallsStage('points', async () => JSON.parse(await this.read(url.href, signal)), signal);
       if (data.result === 'ok') return parseCitywallsPoints(data.geodata);
       this.sid = null;
       if (attempt === 0) sid = await this.session(signal);

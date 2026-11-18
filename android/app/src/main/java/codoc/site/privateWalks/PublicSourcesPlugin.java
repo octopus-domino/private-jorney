@@ -11,11 +11,13 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class PublicSourcesPlugin extends Plugin {
     private PublicSourceBrowserChannel portal;
     private PublicSourceBrowserChannel otherSources;
+    private PublicSourceBrowserChannel history;
 
     @Override
     public void load() {
         portal = new PublicSourceBrowserChannel(getActivity());
         otherSources = new PublicSourceBrowserChannel(getActivity());
+        history = new PublicSourceBrowserChannel(getActivity());
     }
 
     /** Routes portal reads to an independent queue without changing source URLs or cancellation IDs. */
@@ -23,7 +25,8 @@ public class PublicSourcesPlugin extends Plugin {
     public void read(PluginCall call) {
         String url = call.getString("url");
         String host = url == null ? null : Uri.parse(url).getHost();
-        (PublicSourcePolicy.isHouseDataHost(host) ? portal : otherSources).read(call);
+        (PublicSourcePolicy.isHistoryHost(host) ? history
+            : PublicSourcePolicy.isHouseDataHost(host) ? portal : otherSources).read(call);
     }
 
     /** Cancels only the matching request, regardless of its queue. */
@@ -32,6 +35,7 @@ public class PublicSourcesPlugin extends Plugin {
         String id = call.getString("requestId");
         portal.cancel(id);
         otherSources.cancel(id);
+        history.cancel(id);
         call.resolve();
     }
 
@@ -39,5 +43,6 @@ public class PublicSourcesPlugin extends Plugin {
     protected void handleOnDestroy() {
         portal.close();
         otherSources.close();
+        history.close();
     }
 }

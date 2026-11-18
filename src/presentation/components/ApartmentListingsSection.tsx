@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ApartmentListing } from '../../domain/ApartmentListing';
 import { apartmentListingsRepository, avitoListingsRepository } from '../../infrastructure';
 import type { ApartmentListingsRepository } from '../../application/ports/ApartmentListingsRepository';
 import { ExternalSourceError } from '../../infrastructure/api/externalPageTransport';
 import { useMapViewportStore } from '../state/mapViewportStore';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { normalizeHouseAddress } from '../../shared/address';
 
 const VIEWPORT_DEBOUNCE_MS = 600;
 
@@ -17,17 +18,22 @@ export function ApartmentListingsSection({ address, point }: { address: string; 
 
 function SourceListings({ address, point, name, repository }: { address: string; point?: { lat: number; lng: number }; name: string; repository: ApartmentListingsRepository }) {
   const area = useDebouncedValue(useMapViewportStore(state => state.area), VIEWPORT_DEBOUNCE_MS);
+  const latest = useRef({ address, point, area });
+  latest.current = { address, point, area };
+  const key = `${normalizeHouseAddress(address).replace(/ литера а$/, '')}:${point?.lat}:${point?.lng}`;
   const [state, setState] = useState<{ address: string; status: 'idle' | 'loading' | 'ready' | 'error'; listings: ApartmentListing[]; restricted?: boolean }>({ address, status: 'idle', listings: [] });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    setState({ address, status: 'loading', listings: [] });
-    void repository.lookup(address, controller.signal, point, area ?? undefined).then((listings) => {
-      if (!controller.signal.aborted) setState({ address, status: 'ready', listings });
-    }).catch(error => { if (!controller.signal.aborted) setState({ address, status: 'error', listings: [], restricted: error instanceof ExternalSourceError && error.code === 'restricted' }); });
+    const { address: searchAddress, point: searchPoint, area: searchArea } = latest.current;
+    setState(previous => ({ address: key, status: 'loading', listings: previous.address === key ? previous.listings : [] }));
+    void repository.lookup(searchAddress, controller.signal, searchPoint, searchArea ?? undefined).then((listings) => {
+      if (!controller.signal.aborted) setState({ address: key, status: 'ready', listings });
+    }).catch(error => { if (!controller.signal.aborted) setState(previous => ({ address: key, status: 'error',
+      listings: previous.address === key ? previous.listings : [], restricted: error instanceof ExternalSourceError && error.code === 'restricted' })); });
     return () => controller.abort();
-  }, [address, point?.lat, point?.lng, attempt, repository, area]);
-  const current = state.address === address ? state : { status: 'loading', listings: [], restricted: false };
+  }, [key, attempt, repository]);
+  const current = state.address === key ? state : { status: 'loading', listings: [], restricted: false };
   return <section className="apartment-listings__source" aria-label={name} aria-live="polite">
     <h5>{name}</h5>
     {current.status === 'loading' && <p className="source-state">Проверяем объявления…</p>}

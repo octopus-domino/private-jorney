@@ -39,7 +39,7 @@ export function BuildingProfileSection({ poi }: { poi: Poi }) {
       </>}
       {(profile?.address || poi.details?.address) && <ApartmentListingsSection
         address={profile?.address ?? poi.details!.address!}
-        point={profile?.location ?? { lat: poi.lat, lng: poi.lng }}
+        point={{ lat: poi.lat, lng: poi.lng }}
       />}
     </section>
   );

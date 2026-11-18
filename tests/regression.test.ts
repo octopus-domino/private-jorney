@@ -25,6 +25,34 @@ import { ExternalSourceError } from '../src/infrastructure/api/externalPageTrans
 import { GorodSourceError, readGorodStage } from '../src/infrastructure/api/gorodSourceError';
 import { GorodHouseLocator } from '../src/infrastructure/api/gorodHouseLocator';
 import { withRequestDeadline } from '../src/shared/withRequestDeadline';
+import { CitywallsMapCache } from '../src/infrastructure/api/citywallsMapCache';
+import { publishedSourceUrl } from '../src/infrastructure/api/publishedSourceUrl';
+
+test('external house sources are never redirected to a CoDoc relay', () => {
+  for (const url of ['https://www.citywalls.ru/map_around.html', 'https://gorod.gov.spb.ru/public_api/maps/get_nearest/?latitude=59.94',
+    'https://api.cian.ru/search-engine/v1/search-offers-mobile-site/', 'https://www.avito.ru/js/1/map/items'])
+    assert.equal(publishedSourceUrl(url), url);
+});
+
+test('a cached Citywalls map index avoids another mobile map and multi-megabyte square download', async () => {
+  const storage = new Map<string, unknown>();
+  const mapCache = new CitywallsMapCache({ get: key => storage.get(key) as never,
+    set: (key, value) => { storage.set(key, structuredClone(value)); } });
+  let maps = 0, squares = 0, houses = 0;
+  const point: Poi = { id: 'cached-map', lat: 59.94, lng: 30.27, source: 'manual', name: 'Дом', categoryIds: [], facts: [] };
+  const read = async (url: string) => {
+    if (url.includes('map_around')) { maps++; return 'SID: "s=test123"'; }
+    if (url.includes('map_handler')) { squares++; return JSON.stringify({ result: 'ok', geodata: { features: [{ geometry: {
+      geometries: [{ type: 'Point', coordinates: [point.lng, point.lat], id: 1709, title: 'Дом' }],
+    } }] } }); }
+    houses++; return fixture('citywalls-house.html');
+  };
+  for (let pass = 0; pass < 2; pass++) {
+    const repository = new CitywallsHistoryRepository(read, { get: () => undefined, set: () => undefined }, mapCache);
+    assert.ok(await repository.lookup(point));
+  }
+  assert.deepEqual({ maps, squares, houses }, { maps: 1, squares: 1, houses: 2 });
+});
 
 test('Petersburg resolves the reported point through the portal without calling a broken Photon', async () => {
   const point = { id: 'reported', lat: 59.9394057944393, lng: 30.269812345504764, name: 'Дом', source: 'manual' as const, categoryIds: [], facts: [] };

@@ -6,6 +6,14 @@ import static org.junit.Assert.*;
 /** Portal requests are isolated from slow advertisements and persistent mobile session cookies. */
 public class PublicSourcePolicyTest {
     @Test
+    public void historyCannotWaitBehindAdvertisingRequests() {
+        assertTrue(PublicSourcePolicy.isHistoryHost("www.citywalls.ru"));
+        assertTrue(PublicSourcePolicy.isHistoryHost("um.mos.ru"));
+        assertFalse(PublicSourcePolicy.isHistoryHost("api.cian.ru"));
+        assertFalse(PublicSourcePolicy.isHistoryHost("www.avito.ru"));
+        assertFalse(PublicSourcePolicy.isHistoryHost(null));
+    }
+    @Test
     public void mapGeometryPermitsOnlySmallFiniteReadBounds() {
         assertTrue(PublicSourcePolicy.isHouseDataHost("api.openstreetmap.org"));
         assertTrue(PublicSourcePolicy.isSmallMapBounds("30.3845,59.8574,30.3885,59.8595"));

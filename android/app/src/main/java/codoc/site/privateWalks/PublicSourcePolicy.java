@@ -8,6 +8,11 @@ final class PublicSourcePolicy {
         return "gorod.gov.spb.ru".equals(host);
     }
 
+    /** History must never queue behind slow or blocked real-estate searches. */
+    static boolean isHistoryHost(String host) {
+        return "www.citywalls.ru".equals(host) || "um.mos.ru".equals(host);
+    }
+
     /** Both cities' technical house data must be independent of the advertisement queue. */
     static boolean isHouseDataHost(String host) {
         return isCityPortal(host) || "apidata.mos.ru".equals(host) || "api.openstreetmap.org".equals(host);

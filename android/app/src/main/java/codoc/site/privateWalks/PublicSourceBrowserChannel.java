@@ -127,7 +127,10 @@ final class PublicSourceBrowserChannel {
             }
         });
         timeout = () -> { if (active == job) finish(null, "Source request timed out"); };
-        ui.postDelayed(timeout, 35000);
+        // A Citywalls square is several megabytes; normal mobile downloads can exceed 35 seconds.
+        long timeoutMillis = "www.citywalls.ru".equals(Uri.parse(job.url).getHost())
+            && "/include/map_handler.php".equals(Uri.parse(job.url).getPath()) ? 75000 : 35000;
+        ui.postDelayed(timeout, timeoutMillis);
         Uri source = Uri.parse(job.url);
         String origin = "https://" + source.getHost() + "/";
         browser.loadDataWithBaseURL(origin, "<!doctype html><html><body></body></html>", "text/html", "UTF-8", origin);
