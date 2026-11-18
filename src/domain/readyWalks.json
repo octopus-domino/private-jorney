@@ -1,0 +1,191 @@
+[
+  {
+    "id": "imperial",
+    "title": "Императорский детектив",
+    "description": "Дворцовый переворот, царский сад и город, который пережил империю.",
+    "places": [
+      {
+        "id": "preset-spb-castle",
+        "label": "Михайловский замок",
+        "description": "Павел I строил замок как убежище, но именно здесь погиб в результате заговора. Посмотрите на рвы и спросите себя: от кого защищают стены, если опасность уже внутри? Призрак со свечой — уже городская легенда.",
+        "longitude": 30.3385382,
+        "latitude": 59.9403826,
+        "url": "https://ru.wikipedia.org/wiki/Михайловский_замок",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-garden",
+        "label": "Летний сад",
+        "description": "Петровский сад был не просто местом для прогулок: здесь показывали, как должна выглядеть новая придворная жизнь. Найдите прямые аллеи — даже гулять предлагалось по плану.",
+        "longitude": 30.335792,
+        "latitude": 59.9442874,
+        "url": "https://ru.wikipedia.org/wiki/Летний_сад",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-mars",
+        "label": "Марсово поле",
+        "description": "Здесь маршировали войска, а после революции появились захоронения и мемориал. Одно пространство, две эпохи: представьте, как парадный плац стал местом тихой памяти.",
+        "longitude": 30.3314725,
+        "latitude": 59.9435329,
+        "url": "https://ru.wikipedia.org/wiki/Марсово_поле_(Санкт-Петербург)",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-savior",
+        "label": "Спас на Крови",
+        "description": "Нарядные мозаики скрывают трагическую причину строительства: на этом месте смертельно ранили Александра II. Красота здесь работает как памятник, а не как украшение случайного перекрёстка.",
+        "longitude": 30.3288281,
+        "latitude": 59.9400972,
+        "url": "https://ru.wikipedia.org/wiki/Спас_на_Крови",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      }
+    ]
+  },
+  {
+    "id": "legends",
+    "title": "Легенды Гороховой",
+    "description": "Распутин, тайные общества и дворец, где слухи стали историей.",
+    "places": [
+      {
+        "id": "preset-spb-rotunda",
+        "label": "Ротонда на Гороховой",
+        "description": "За обычным фасадом прячется круглая лестница, вокруг которой выросли рассказы о масонах и иных мирах. Смотрим дом с улицы: жилая парадная не становится общедоступной оттого, что у неё есть легенда.",
+        "longitude": 30.325556,
+        "latitude": 59.925556,
+        "url": "https://ru.wikipedia.org/wiki/Дом_Евментьева",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-rasputin",
+        "label": "Бывшая квартира Распутина",
+        "description": "Гороховая, 64: адрес человека, о котором слухов едва ли не больше, чем документов. У бывшего дома Распутина попробуйте отделить влияние при дворе от позднейших страшилок.",
+        "longitude": 30.3309721,
+        "latitude": 59.9232042,
+        "url": "https://ru.wikipedia.org/wiki/Распутин,_Григорий_Ефимович",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-yusupov",
+        "label": "Юсуповский дворец",
+        "description": "Убийство Распутина связывает этот дворец с декабрём 1916 года. История о яде, пирожных и невероятной живучести звучит как готовый триллер, но свидетельства участников требуют проверки.",
+        "longitude": 30.2984788,
+        "latitude": 59.9292592,
+        "url": "https://ru.wikipedia.org/wiki/Юсуповский_дворец_на_Мойке",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-isaac",
+        "label": "Исаакиевский собор",
+        "description": "Посмотрите вверх: за тяжёлым куполом стоят десятилетия работы и инженерных решений. А рассказы о предсказанной смерти Монферрана оставим на полке городских легенд — рядом с другими красивыми совпадениями.",
+        "longitude": 30.306142,
+        "latitude": 59.9340785,
+        "url": "https://ru.wikipedia.org/wiki/Исаакиевский_собор",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      }
+    ]
+  },
+  {
+    "id": "island",
+    "title": "Тайны Васильевского острова",
+    "description": "Египетские сфинксы, аптечные грифоны и город, который учился удивляться науке.",
+    "places": [
+      {
+        "id": "preset-spb-sphinx",
+        "label": "Сфинксы на Университетской набережной",
+        "description": "Сфинксы пережили тысячелетия в Египте, а потом оказались у холодной Невы. Посмотрите на лица и иероглифы: это не стилизация XIX века, а настоящая древность посреди петербургского пейзажа.",
+        "longitude": 30.290833,
+        "latitude": 59.937222,
+        "url": "https://ru.wikipedia.org/wiki/Сфинксы_на_Университетской_набережной",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-pel",
+        "label": "Аптека Пеля и Башня грифонов",
+        "description": "Аптека Пеля — история фармацевтики, а грифоны во дворе — история городского воображения. Не перепутаем жанры: легенда обещает чудеса, но пройти во двор без разрешения не обещает.",
+        "longitude": 30.2839421,
+        "latitude": 59.9382943,
+        "url": "https://ru.wikipedia.org/wiki/Аптека_доктора_Пеля",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-kunstkamera",
+        "label": "Кунсткамера",
+        "description": "Кунсткамера собирала удивительное, чтобы его изучать, а не только пугаться. Представьте город, где диковинка постепенно превращается из предмета суеверия в научный вопрос.",
+        "longitude": 30.3036769,
+        "latitude": 59.9415277,
+        "url": "https://ru.wikipedia.org/wiki/Кунсткамера",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      },
+      {
+        "id": "preset-spb-spit",
+        "label": "Стрелка Васильевского острова",
+        "description": "У Ростральных колонн город устраивает собственную парадную фотографию: вода, торговля и большие амбиции. Оглянитесь на оба берега — хорошее место, чтобы собрать прогулку в одну картину.",
+        "longitude": 30.3072541,
+        "latitude": 59.9442876,
+        "url": "https://ru.wikipedia.org/wiki/Стрелка_Васильевского_острова",
+        "source": "curated",
+        "meta": {
+          "source": "curated",
+          "theme": "cultural",
+          "visit_status": "UNKNOWN"
+        }
+      }
+    ]
+  }
+]

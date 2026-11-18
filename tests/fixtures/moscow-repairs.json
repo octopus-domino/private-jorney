@@ -1,0 +1,59 @@
+[
+  {
+    "global_id": 1136596954,
+    "Cells": {
+      "ObjectAddress": [
+        {
+          "is_deleted": 0,
+          "UNOM": "24733"
+        }
+      ],
+      "WorkEssence": "Розлив системы холодного водоснабжения",
+      "WorkName": "Ремонт Розлив системы холодного водоснабжения",
+      "YearOfWork": 2014,
+      "StartDate": "15.01.2014",
+      "StartDateActual": "12.02.2014",
+      "EndDate": "25.08.2014",
+      "EndDateActual": "03.12.2014",
+      "WorkStatus": "завершена"
+    }
+  },
+  {
+    "global_id": 1136594500,
+    "Cells": {
+      "ObjectAddress": [
+        {
+          "is_deleted": 0,
+          "UNOM": "24747"
+        }
+      ],
+      "WorkEssence": "Розлив системы горячего водоснабжения",
+      "WorkName": "Ремонт Розлив системы горячего водоснабжения",
+      "YearOfWork": 2014,
+      "StartDate": "15.01.2014",
+      "StartDateActual": "02.04.2014",
+      "EndDate": "25.08.2014",
+      "EndDateActual": "04.08.2014",
+      "WorkStatus": "завершена"
+    }
+  },
+  {
+    "global_id": 1136595032,
+    "Cells": {
+      "ObjectAddress": [
+        {
+          "is_deleted": 0,
+          "UNOM": "8765"
+        }
+      ],
+      "WorkEssence": "Розлив системы горячего водоснабжения",
+      "WorkName": "Ремонт Розлив системы горячего водоснабжения",
+      "YearOfWork": 2014,
+      "StartDate": "15.01.2014",
+      "StartDateActual": "02.04.2014",
+      "EndDate": "25.08.2014",
+      "EndDateActual": "25.04.2014",
+      "WorkStatus": "завершена"
+    }
+  }
+]
