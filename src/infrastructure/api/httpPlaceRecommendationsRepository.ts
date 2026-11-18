@@ -14,7 +14,7 @@ const THEMED_CACHE = new QueryCache<PlaceResultDto>({
   ttlMs: 60 * 60 * 1000,
   maxEntries: 50,
   persist: true,
-  storageKey: 'private-walks/cache/themed/v2',
+  storageKey: 'private-walks/cache/themed/v3',
 });
 
 /** Обычные attractions: 1 час. */
