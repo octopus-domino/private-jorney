@@ -3,6 +3,7 @@ import type { RawWalkSession, TrackPoint } from '../../domain/RecordedWalk';
 import { acceptsTrackPoint } from '../../domain/trackQuality';
 import { haversineMeters } from '../../shared/geo';
 import { parseRecording } from './recordingCodec';
+import { GPS_MODES, type GpsMode } from '../../domain/GpsMode';
 
 const STORAGE_KEY = 'private-walks/browser-recording/v1';
 const FLUSH_INTERVAL_MS = 30000;
@@ -14,20 +15,22 @@ export class BrowserWalkRecorder implements WalkRecorder {
   private session: RawWalkSession | null = null;
   private flushedAt = 0;
   private failure?: string;
+  private mode: GpsMode = 'balanced';
 
   /** Starts a watcher with cached-fix support and ordinary power accuracy. */
-  async start(): Promise<void> {
+  async start(mode: GpsMode = 'balanced'): Promise<void> {
     if (this.watchId !== null) return;
     this.failure = undefined;
+    this.mode = mode;
     if (!navigator.geolocation) throw new Error('Геолокация недоступна в этом браузере.');
-    this.session = { id: `walk_${crypto.randomUUID()}`, startedAt: Date.now(), state: 'recording', pointCount: 0, distanceMeters: 0, points: [] };
+    this.session = { id: `walk_${crypto.randomUUID()}`, startedAt: Date.now(), state: 'recording', pointCount: 0, distanceMeters: 0, points: [], gpsMode: mode };
     this.persist();
     this.watchId = navigator.geolocation.watchPosition(position => {
       try { this.accept({ lat: position.coords.latitude, lng: position.coords.longitude,
         accuracy: position.coords.accuracy, timestamp: position.timestamp }); }
       catch (error) { this.fail('Не удалось сохранить точку. Проверьте свободное место.', error); }
     }, error => { if (error.code === error.PERMISSION_DENIED) this.fail('Разрешите доступ к местоположению для записи пути.', error); },
-    { enableHighAccuracy: true, maximumAge: 12000, timeout: 30000 });
+    { enableHighAccuracy: GPS_MODES[mode].highAccuracy, maximumAge: GPS_MODES[mode].intervalMs, timeout: 45000 });
   }
 
   /** Flushes the last accepted samples before making the record available to the archive. */
@@ -69,7 +72,10 @@ export class BrowserWalkRecorder implements WalkRecorder {
   }
 
   private accept(point: TrackPoint) {
-    if (!this.session || !acceptsTrackPoint(point, this.session.lastPoint)) return;
+    if (!this.session) return;
+    this.session.lastAccuracy = point.accuracy;
+    if (!acceptsTrackPoint(point, this.session.lastPoint, Date.now(), GPS_MODES[this.mode].maxAccuracy)) return;
+    if (this.session.lastPoint && point.timestamp - this.session.lastPoint.timestamp < GPS_MODES[this.mode].intervalMs) return;
     if (this.session.lastPoint) this.session.distanceMeters += haversineMeters(this.session.lastPoint, point);
     this.session.points!.push(point);
     this.session.lastPoint = point;

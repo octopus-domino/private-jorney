@@ -20,7 +20,10 @@ export class CitywallsHistoryRepository implements PlaceHistoryRepository {
     private readonly mapCache: SuccessCache<CitywallsPoint[]> = new CitywallsMapCache()) {}
 
   /** Keeps text/title rerenders from restarting the same building lookup. */
-  requestKey(poi: Poi): string { return `${poi.lat}:${poi.lng}:${poi.details?.sourceUrl ?? ''}`; }
+  requestKey(poi: Poi): string {
+    const id = poi.details?.sourceUrl?.match(/^https:\/\/www\.citywalls\.ru\/house(\d+)\.html/);
+    return id ? `house:${id[1]}` : `${poi.lat}:${poi.lng}:${poi.details?.sourceUrl ?? ''}`;
+  }
 
   supports(poi: Poi): boolean { return citywallsSquares(poi).length > 0; }
 

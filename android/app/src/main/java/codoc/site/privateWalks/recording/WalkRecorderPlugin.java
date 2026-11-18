@@ -113,6 +113,7 @@ public final class WalkRecorderPlugin extends Plugin {
         ui.post(() -> {
             try {
                 Intent intent = new Intent(getContext(), WalkRecordingService.class).setAction(action);
+                intent.putExtra("gpsMode", GpsMode.from(call.getString("mode", "balanced")).id);
                 intent.putExtra(WalkRecordingService.RESULT, new ResultReceiver(ui) {
                     @Override protected void onReceiveResult(int code, Bundle result) {
                         if (code == 0) call.resolve(); else call.reject(result.getString("error", "Ошибка записи."));

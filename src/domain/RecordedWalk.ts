@@ -5,6 +5,7 @@ export interface TrackPoint { lat: number; lng: number; accuracy: number; timest
 export interface RawWalkSession {
   id: string; startedAt: number; endedAt?: number; state: 'recording' | 'stopped' | 'interrupted';
   pointCount: number; distanceMeters: number; lastPoint?: TrackPoint; points?: TrackPoint[];
+  gpsMode?: import('./GpsMode').GpsMode; lastAccuracy?: number;
 }
 export interface RecordedPlace {
   poi: Poi; side: 'left' | 'right' | 'nearby'; progressMeters: number;

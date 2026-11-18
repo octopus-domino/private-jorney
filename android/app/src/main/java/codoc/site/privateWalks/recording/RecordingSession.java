@@ -13,18 +13,26 @@ public final class RecordingSession {
     private long flushedAt;
     private int count;
     private double distance;
+    private final GpsMode mode;
 
     /** Creates a new durable session before requesting the first location fix. */
     public RecordingSession(RecordingFiles files) throws Exception {
+        this(files, GpsMode.BALANCED);
+    }
+
+    /** Persists the selected mode with the journal so restored status explains its quality settings. */
+    public RecordingSession(RecordingFiles files, GpsMode mode) throws Exception {
         this.files = files;
+        this.mode = mode;
         metadata = new JSONObject().put("id", "walk_" + UUID.randomUUID()).put("startedAt", System.currentTimeMillis())
-            .put("state", "recording").put("pointCount", 0).put("distanceMeters", 0);
+            .put("state", "recording").put("pointCount", 0).put("distanceMeters", 0).put("gpsMode", mode.id);
         files.save(metadata);
     }
 
     /** Appends only validated movement and batches ordinary writes at most once per thirty seconds. */
     public void accept(TrackFix sample, long elapsedNow) throws Exception {
-        if (!TrackQualityPolicy.accepts(sample, previous, elapsedNow)) return;
+        if (Float.isFinite(sample.accuracy())) metadata.put("lastAccuracy", sample.accuracy());
+        if (!TrackQualityPolicy.accepts(sample, previous, elapsedNow, mode.maxAccuracy)) return;
         if (previous != null) distance += TrackQualityPolicy.distance(previous, sample);
         previous = sample;
         count++;

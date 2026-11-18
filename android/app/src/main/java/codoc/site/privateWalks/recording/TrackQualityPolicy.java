@@ -13,9 +13,14 @@ public final class TrackQualityPolicy {
 
     /** Keeps genuine movement while rejecting low-accuracy, stale, out-of-order and teleport samples. */
     public static boolean accepts(TrackFix sample, TrackFix previous, long elapsedNow) {
+        return accepts(sample, previous, elapsedNow, MAX_ACCURACY_METERS);
+    }
+
+    /** Recording modes expose accuracy tolerance without weakening imported-track defaults. */
+    public static boolean accepts(TrackFix sample, TrackFix previous, long elapsedNow, float maxAccuracy) {
         if (!Double.isFinite(sample.latitude()) || !Double.isFinite(sample.longitude())) return false;
         if (Math.abs(sample.latitude()) > 90 || Math.abs(sample.longitude()) > 180) return false;
-        if (!Float.isFinite(sample.accuracy()) || sample.accuracy() < 0 || sample.accuracy() > MAX_ACCURACY_METERS) return false;
+        if (!Float.isFinite(sample.accuracy()) || sample.accuracy() < 0 || sample.accuracy() > maxAccuracy) return false;
         if (elapsedNow - sample.elapsedMillis() > MAX_SAMPLE_AGE_MS) return false;
         if (previous == null) return true;
         long interval = sample.elapsedMillis() - previous.elapsedMillis();

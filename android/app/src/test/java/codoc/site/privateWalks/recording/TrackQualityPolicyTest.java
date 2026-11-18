@@ -14,6 +14,15 @@ public class TrackQualityPolicyTest {
         assertTrue(TrackQualityPolicy.distance(FIRST, next) > 15);
     }
 
+    @Test public void selectedModeControlsAccuracyWithoutAcceptingStaleFixes() {
+        TrackFix approximate = new TrackFix(59.94, 30.27, 65, 1000000, NOW);
+        assertTrue(TrackQualityPolicy.accepts(approximate, null, NOW, GpsMode.BALANCED.maxAccuracy));
+        assertFalse(TrackQualityPolicy.accepts(approximate, null, NOW, GpsMode.PRECISE.maxAccuracy));
+        assertFalse(TrackQualityPolicy.accepts(approximate, null, NOW + 61000, GpsMode.ECONOMY.maxAccuracy));
+        assertEquals(GpsMode.BALANCED, GpsMode.from(null));
+        assertEquals(GpsMode.PRECISE, GpsMode.from("precise"));
+    }
+
     @Test public void rejectsNoiseAndImpossibleJumps() {
         assertFalse(TrackQualityPolicy.accepts(new TrackFix(59.94, 30.27, 8, 1012000, NOW + 12000), FIRST, NOW + 12000));
         assertFalse(TrackQualityPolicy.accepts(new TrackFix(60.04, 30.27, 8, 1012000, NOW + 12000), FIRST, NOW + 12000));

@@ -5,7 +5,8 @@ const pointSchema = z.object({ lat: z.number().finite().min(-90).max(90), lng: z
   accuracy: z.number().finite().nonnegative(), timestamp: z.number().finite() });
 const sessionSchema = z.object({ id: z.string(), startedAt: z.number().finite(), endedAt: z.number().finite().optional(),
   state: z.enum(['recording', 'stopped', 'interrupted']), pointCount: z.number().nonnegative(), distanceMeters: z.number().finite().nonnegative(),
-  lastPoint: pointSchema.optional(), points: z.array(z.unknown()).optional() });
+  lastPoint: pointSchema.optional(), points: z.array(z.unknown()).optional(),
+  gpsMode: z.enum(['economy', 'balanced', 'precise']).optional(), lastAccuracy: z.number().finite().nonnegative().optional() });
 
 /** A damaged trailing sample cannot invalidate a complete native or browser recording. */
 export function parseRecording(value: unknown): RawWalkSession {

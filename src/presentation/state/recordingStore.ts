@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { RawWalkSession, RecordedWalk, TrackPoint } from '../../domain/RecordedWalk';
 import { recordedWalks } from '../../infrastructure';
 import { useWalkStore } from './walkStore';
+import { gpsMode, type GpsMode } from '../../domain/GpsMode';
 
 interface RecordingState {
   session: RawWalkSession | null;
@@ -11,6 +12,8 @@ interface RecordingState {
   livePath: TrackPoint[];
   processing: string[];
   error: string | null;
+  gpsMode: GpsMode;
+  setGpsMode(mode: GpsMode): void;
   sync(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -20,9 +23,22 @@ interface RecordingState {
 
 const message = (error: unknown) => error instanceof Error ? error.message : 'Не удалось сохранить прогулку.';
 let synchronizing = false;
+const GPS_MODE_KEY = 'private-walks/recording-gps-mode/v1';
+
+function savedGpsMode(): GpsMode {
+  try { return gpsMode(localStorage.getItem(GPS_MODE_KEY)); }
+  catch (error) { console.info('GPS preference unavailable; using balanced mode', error); return 'balanced'; }
+}
 
 /** Presentation state polls compact statistics only while visible; native GPS works independently. */
 export const useRecordingStore = create<RecordingState>((set, get) => ({
+  gpsMode: savedGpsMode(),
+  setGpsMode(mode) {
+    if (get().active) return;
+    set({ gpsMode: mode });
+    try { localStorage.setItem(GPS_MODE_KEY, mode); }
+    catch (error) { console.info('GPS preference is available for this session only', error); }
+  },
   session: null, active: false, busy: false, records: [], livePath: [], processing: [], error: null,
   async sync() {
     if (synchronizing) return;
@@ -42,7 +58,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   async start() {
     if (get().busy) return;
     set({ busy: true, error: null, livePath: [] });
-    try { await recordedWalks.start(); await get().sync(); }
+    try { await recordedWalks.start(get().gpsMode); await get().sync(); }
     catch (error) { set({ error: message(error) }); }
     finally { set({ busy: false }); }
   },

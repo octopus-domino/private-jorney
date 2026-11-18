@@ -78,11 +78,13 @@ final class PublicSourceBrowserChannel {
     }
 
     private String requestOptions(Job job) {
-        String headers = "{Accept:'text/html,application/json,text/plain,*/*'" +
+        String headers = "{Accept:'text/html,application/json,text/plain,*/*','Accept-Language':'ru-RU,ru;q=0.9,en;q=0.5'" +
             ("POST".equals(job.method) ? ",'Content-Type':'application/json'" : "") + "}";
         String credentials = PublicSourcePolicy.credentials(Uri.parse(job.url).getHost());
+        String referrer = "www.citywalls.ru".equals(Uri.parse(job.url).getHost())
+            ? ",referrer:'https://www.citywalls.ru/map_around.html'" : "";
         return "{credentials:" + JSONObject.quote(credentials) + ",cache:'no-store',method:" + JSONObject.quote(job.method) +
-            ",headers:" + headers + ("POST".equals(job.method) ? ",body:" + JSONObject.quote(job.body) : "") + "}";
+            ",headers:" + headers + referrer + ("POST".equals(job.method) ? ",body:" + JSONObject.quote(job.body) : "") + "}";
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})

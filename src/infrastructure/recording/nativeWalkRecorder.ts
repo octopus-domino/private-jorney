@@ -2,9 +2,10 @@ import { registerPlugin } from '@capacitor/core';
 import type { RawWalkSession } from '../../domain/RecordedWalk';
 import type { WalkRecorder } from '../../application/ports/WalkRecorder';
 import { parseRecording } from './recordingCodec';
+import type { GpsMode } from '../../domain/GpsMode';
 
 interface NativeRecordingBridge {
-  start(): Promise<void>; stop(): Promise<void>;
+  start(options?: { mode: GpsMode }): Promise<void>; stop(): Promise<void>;
   status(): Promise<{ active: boolean; session: RawWalkSession | null }>;
   list(): Promise<{ sessions: RawWalkSession[] }>;
   read(options: { id: string }): Promise<RawWalkSession>;
@@ -19,8 +20,8 @@ export class NativeWalkRecorder implements WalkRecorder {
 
   constructor(private readonly bridge = nativeRecorder, private readonly geolocation = () => navigator.geolocation) {}
   /** Starts only in response to an explicit user action. */
-  async start() {
-    await this.bridge.start();
+  async start(mode: GpsMode = 'balanced') {
+    await this.bridge.start({ mode });
     this.geolocation()?.getCurrentPosition(position => {
       void this.bridge.seed({ lat: position.coords.latitude, lng: position.coords.longitude,
         accuracy: position.coords.accuracy, timestamp: position.timestamp })

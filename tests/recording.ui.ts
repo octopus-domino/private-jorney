@@ -80,6 +80,19 @@ test('record start-stop persists full GPS, factual report and preview across an 
   await expect(page.locator('.walk-report__source')).toHaveCount(1);
 });
 
+test('GPS profile fits the recording sheet and survives reload', async ({ page }) => {
+  await page.getByRole('button', { name: 'Записать прогулку', exact: true }).click();
+  const mode = page.getByLabel('Режим GPS');
+  await mode.selectOption('economy');
+  await expect(mode).toHaveValue('economy');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.reload();
+  await page.getByRole('button', { name: 'Записать прогулку', exact: true }).click();
+  await expect(mode).toHaveValue('economy');
+  await mode.selectOption('precise');
+  await expect(page.getByText('Частые точки и активный GPS. Расход батареи выше.', { exact: true })).toBeVisible();
+});
+
 test('an interrupted browser journal is recovered into the archive and can be deleted', async ({ page }) => {
   await page.evaluate(({ lat, lng }) => localStorage.setItem('private-walks/browser-recording/v1', JSON.stringify({
     id: 'walk_recovery', startedAt: Date.now() - 60000, state: 'recording', pointCount: 2, distanceMeters: 20,

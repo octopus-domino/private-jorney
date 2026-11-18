@@ -12,12 +12,14 @@ public class PublicSourcesPlugin extends Plugin {
     private PublicSourceBrowserChannel portal;
     private PublicSourceBrowserChannel otherSources;
     private PublicSourceBrowserChannel history;
+    private PublicSourceBrowserChannel catalogue;
 
     @Override
     public void load() {
         portal = new PublicSourceBrowserChannel(getActivity());
         otherSources = new PublicSourceBrowserChannel(getActivity());
         history = new PublicSourceBrowserChannel(getActivity());
+        catalogue = new PublicSourceBrowserChannel(getActivity());
     }
 
     /** Routes portal reads to an independent queue without changing source URLs or cancellation IDs. */
@@ -25,7 +27,9 @@ public class PublicSourcesPlugin extends Plugin {
     public void read(PluginCall call) {
         String url = call.getString("url");
         String host = url == null ? null : Uri.parse(url).getHost();
-        (PublicSourcePolicy.isHistoryHost(host) ? history
+        String path = url == null ? null : Uri.parse(url).getPath();
+        boolean index = "www.citywalls.ru".equals(host) && ("/map_around.html".equals(path) || "/include/map_handler.php".equals(path));
+        (index ? catalogue : PublicSourcePolicy.isHistoryHost(host) ? history
             : PublicSourcePolicy.isHouseDataHost(host) ? portal : otherSources).read(call);
     }
 
@@ -36,6 +40,7 @@ public class PublicSourcesPlugin extends Plugin {
         portal.cancel(id);
         otherSources.cancel(id);
         history.cancel(id);
+        catalogue.cancel(id);
         call.resolve();
     }
 
@@ -44,5 +49,6 @@ public class PublicSourcesPlugin extends Plugin {
         portal.close();
         otherSources.close();
         history.close();
+        catalogue.close();
     }
 }

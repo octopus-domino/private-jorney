@@ -18,12 +18,21 @@ public final class WalkRecordingService extends Service {
     public static final String RESULT = "result";
     private static final String CHANNEL = "walk-recording";
     private static final int NOTIFICATION_ID = 2301;
-    private static final long BATCH_DELAY_MS = 30000;
+    private static final long ACQUISITION_WINDOW_MS = 45000;
     private static final long MAX_SEED_AGE_MS = 60000;
     private static volatile WalkRecordingService instance;
     private RecordingSession session;
     private LocationManager locations;
     private String failure;
+    private GpsMode mode = GpsMode.BALANCED;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean acquiring;
+    private final Runnable settle = () -> {
+        if (session == null || !acquiring) return;
+        acquiring = false;
+        try { subscribe(); }
+        catch (Exception error) { android.util.Log.e("WalkRecorder", "Unable to apply recording mode", error); }
+    };
 
     private final LocationListenerCompat listener = new LocationListenerCompat() {
         @Override public void onLocationChanged(Location location) {
@@ -31,6 +40,7 @@ public final class WalkRecordingService extends Service {
                 TrackFix fix = new TrackFix(location.getLatitude(), location.getLongitude(), location.getAccuracy(),
                     location.getTime(), location.getElapsedRealtimeNanos() / 1000000);
                 if (session != null) session.accept(fix, SystemClock.elapsedRealtime());
+                if (acquiring && session != null && session.snapshot().optInt("pointCount") > 0) handler.post(settle);
             } catch (Exception error) {
                 failure = "Не удалось сохранить точку. Проверьте свободное место.";
                 android.util.Log.e("WalkRecorder", "Unable to persist a GPS sample", error);
@@ -65,7 +75,7 @@ public final class WalkRecordingService extends Service {
             return START_NOT_STICKY;
         }
         try {
-            if (session == null) begin();
+            if (session == null) { mode = GpsMode.from(intent.getStringExtra("gpsMode")); begin(); }
             reply(result, 0, null);
         } catch (Exception error) {
             failure = "Не удалось начать запись. Проверьте точную геолокацию и настройки телефона.";
@@ -82,16 +92,32 @@ public final class WalkRecordingService extends Service {
         locations = (LocationManager) getSystemService(LOCATION_SERVICE);
         if (!LocationManagerCompat.isLocationEnabled(locations)) throw new IllegalStateException("Location disabled");
         startForeground(NOTIFICATION_ID, notification());
-        session = new RecordingSession(new RecordingFiles(this));
+        session = new RecordingSession(new RecordingFiles(this), mode);
         instance = this;
-        LocationRequestCompat request = new LocationRequestCompat.Builder(TrackQualityPolicy.INTERVAL_MS)
-            .setMinUpdateDistanceMeters(TrackQualityPolicy.MIN_DISTANCE_METERS)
-            .setMaxUpdateDelayMillis(BATCH_DELAY_MS).setQuality(LocationRequestCompat.QUALITY_HIGH_ACCURACY).build();
-        // Strategy: prefer the actual GNSS provider. A balanced fused request can yield only coarse fixes
-        // that the walking accuracy filter correctly rejects, leaving recording waiting indefinitely.
-        String provider = locations.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER
-            : Build.VERSION.SDK_INT >= 31 && locations.hasProvider(LocationManager.FUSED_PROVIDER)
-                ? LocationManager.FUSED_PROVIDER : LocationManager.NETWORK_PROVIDER;
+        acquiring = true;
+        subscribe();
+        handler.postDelayed(settle, ACQUISITION_WINDOW_MS);
+    }
+
+    /** Fused/network acquisition must remain available even when satellites have not produced a fix. */
+    private void subscribe() {
+        locations.removeUpdates(listener);
+        long interval = acquiring ? 1000 : mode.intervalMillis;
+        var request = new LocationRequestCompat.Builder(interval)
+            .setMinUpdateDistanceMeters(acquiring ? 0 : mode.distanceMeters)
+            .setMaxUpdateDelayMillis(acquiring ? 0 : mode.batchMillis)
+            .setQuality(!acquiring && mode == GpsMode.ECONOMY ? LocationRequestCompat.QUALITY_BALANCED_POWER_ACCURACY
+                : LocationRequestCompat.QUALITY_HIGH_ACCURACY).build();
+        boolean fused = Build.VERSION.SDK_INT >= 31 && locations.hasProvider(LocationManager.FUSED_PROVIDER)
+            && locations.isProviderEnabled(LocationManager.FUSED_PROVIDER);
+        if (fused) subscribeProvider(LocationManager.FUSED_PROVIDER, request);
+        if (locations.isProviderEnabled(LocationManager.GPS_PROVIDER) && (acquiring || mode != GpsMode.ECONOMY || !fused))
+            subscribeProvider(LocationManager.GPS_PROVIDER, request);
+        if (locations.isProviderEnabled(LocationManager.NETWORK_PROVIDER) && (acquiring || !fused))
+            subscribeProvider(LocationManager.NETWORK_PROVIDER, request);
+    }
+
+    private void subscribeProvider(String provider, LocationRequestCompat request) {
         seedLastKnown(provider);
         LocationManagerCompat.requestLocationUpdates(locations, provider, request, listener, Looper.getMainLooper());
     }
@@ -118,6 +144,7 @@ public final class WalkRecordingService extends Service {
     }
 
     private void stopRecording(String state) {
+        handler.removeCallbacks(settle);
         try {
             if (locations != null) locations.removeUpdates(listener);
             if (session != null) session.finish(state);

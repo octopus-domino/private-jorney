@@ -4,6 +4,7 @@ import type { RecordedWalkEnricher } from './enrichRecordedWalk';
 import type { Poi } from '../../domain/Poi';
 import type { RecordedWalk } from '../../domain/RecordedWalk';
 import { initialWalk } from '../../domain/walkStory';
+import type { GpsMode } from '../../domain/GpsMode';
 
 /** Coordinates the native journal and local archive. Durable GPS save precedes all optional network enrichment. */
 export class RecordedWalkService {
@@ -23,7 +24,7 @@ export class RecordedWalkService {
   }
 
   /** Explicit start is the sole entry point to permission requests and background location collection. */
-  async start(): Promise<void> { await this.recover(); await this.recorder.start(); }
+  async start(mode?: GpsMode): Promise<void> { await this.recover(); await this.recorder.start(mode); }
 
   /** Resolves after the raw track commits; slow public sources cannot delay the stop action. */
   async stop(): Promise<RecordedWalk | null> {

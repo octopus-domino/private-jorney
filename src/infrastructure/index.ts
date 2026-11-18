@@ -5,7 +5,8 @@ import { HttpRoutePlanner } from './api/httpRoutePlanner';
 import { HttpPlaceInfoRepository } from './api/httpPlaceInfoRepository';
 import { PhotonGeocoder } from './api/photonGeocoder';
 import { LocalDraftStore } from './persistence/localDraftStore';
-import { CitywallsHistoryRepository } from './api/citywallsHistoryRepository';
+import { IndexedCitywallsHistoryRepository } from './api/indexedCitywallsHistoryRepository';
+import { CitywallsLocalIndex } from './api/citywallsLocalIndex';
 import { GorodBuildingProfileRepository } from './api/gorodBuildingProfileRepository';
 import { CianApartmentListingsRepository } from './api/cianApartmentListingsRepository';
 import { AvitoApartmentListingsRepository } from './api/avitoApartmentListingsRepository';
@@ -33,7 +34,8 @@ export const routePlanner = new HttpRoutePlanner();
 export const placeInfoRepository = new HttpPlaceInfoRepository(geocoder);
 export { geocoder };
 export const draftStore = new LocalDraftStore();
-const citywalls = new CitywallsHistoryRepository();
+export const citywallsIndex = new CitywallsLocalIndex();
+const citywalls = new IndexedCitywallsHistoryRepository(citywallsIndex);
 const moscow = new MoscowHistoryRepository();
 export const placeHistoryRepository = new CityHistoryRepository([
   { name: 'Citywalls', repository: citywalls },

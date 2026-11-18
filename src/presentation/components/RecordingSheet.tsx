@@ -3,6 +3,7 @@ import { useRecordingStore } from '../state/recordingStore';
 import { useSwipeDismiss } from '../hooks/useSwipeDismiss';
 import { recordedWalks } from '../../infrastructure';
 import type { RecordedWalk } from '../../domain/RecordedWalk';
+import { GPS_MODES, type GpsMode } from '../../domain/GpsMode';
 
 /** Recording controls and local reports share a dismissible sheet on phones and a dialog on desktop. */
 export function RecordingSheet({ onClose }: { onClose(): void }) {
@@ -20,8 +21,18 @@ export function RecordingSheet({ onClose }: { onClose(): void }) {
           <div className={`recording-status${state.active ? ' is-recording' : ''}`}>
             <span className="recording-status__dot" aria-hidden="true" />
             <strong>{state.active ? 'Записываем вашу прогулку' : 'Сохраните путь и его истории'}</strong>
+            <label className="gps-mode">Режим GPS
+              <select value={state.session?.gpsMode ?? state.gpsMode} disabled={state.active || state.busy}
+                onChange={event => state.setGpsMode(event.target.value as GpsMode)}>
+                {Object.entries(GPS_MODES).map(([id, mode]) => <option key={id} value={id}>{mode.title}</option>)}
+              </select>
+              <small>{GPS_MODES[state.session?.gpsMode ?? state.gpsMode].description}</small>
+            </label>
             <p>{state.active ? state.session?.pointCount ? 'Координаты сохраняются в телефоне.' : 'Ждём точное местоположение. Лучше выйти на открытое место.'
               : 'Нажмите «Начать», гуляйте, а в конце нажмите «Завершить». Путь и рассказ о местах останутся у вас.'}</p>
+            {state.active && !state.session?.pointCount && state.session?.lastAccuracy !== undefined
+              && <p role="status">Сигнал получен, точность около {Math.round(state.session.lastAccuracy)} м.
+                Для этого режима нужна точность до {GPS_MODES[state.session.gpsMode ?? state.gpsMode].maxAccuracy} м.</p>}
             {state.active && state.session && <p className="recording-stats">{state.session.distanceMeters > 0 && `${Math.round(state.session.distanceMeters)} м · `}{new Date(state.session.startedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} — начало</p>}
             <button className={`journey-button${state.active ? ' journey-button--stop' : ''}`} disabled={state.busy}
               onClick={() => void (state.active ? state.stop() : state.start())}>{state.busy ? 'Сохраняем…' : state.active ? 'Завершить прогулку' : 'Начать запись'}</button>
