@@ -14,11 +14,12 @@ export class AreaSearchSession {
   private points: Poi[] = [];
 
   constructor(private readonly repository: PoiRepository, private readonly params: PoiSearchParams,
-    private readonly notify: (update: AreaSearchUpdate) => void, private readonly timeout = SEARCH_TIMEOUT_MS) {}
+    private readonly notify: (update: AreaSearchUpdate) => void, private readonly timeout = SEARCH_TIMEOUT_MS,
+    initialPoints: Poi[] = []) { this.points = this.filter(initialPoints); }
 
   /** Clears the previous discovery immediately and publishes each successfully completed source. */
   start(): () => void {
-    this.notify({ points: [], status: 'loading' });
+    this.notify({ points: this.points, status: 'loading' });
     this.timer = setTimeout(() => this.expire(), this.timeout);
     void this.repository.search({ ...this.params, signal: this.controller.signal, onPartial: points => this.partial(points) })
       .then(points => this.finish({ points: this.filter(points), status: 'ready' }))

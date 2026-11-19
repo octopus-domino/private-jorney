@@ -10,6 +10,7 @@ import { codocFetch, type CodocFetch } from './codocHttp';
 
 /** Area results are cached independently of legacy limited route recommendations. */
 const THEMED_CACHE = new QueryCache<PlaceResultDto>({
+  keepAliveMs: 45000,
   name: 'themed',
   ttlMs: 60 * 60 * 1000,
   maxEntries: 50,

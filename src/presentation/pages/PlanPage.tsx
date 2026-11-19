@@ -154,7 +154,7 @@ export function PlanPage({ onHome, onRecord }: { onHome?(): void; onRecord?(): v
     };
   }, [addAnchor, hydrate, setEntryError, setRadius, setView]);
 
-  usePoisQuery();
+  const retryPoiSearch = usePoisQuery();
   useUrlSync(hydrated);
 
   useEffect(() => {
@@ -420,7 +420,7 @@ export function PlanPage({ onHome, onRecord }: { onHome?(): void; onRecord?(): v
           <div className="app__header-meta">
             {poisStatus === 'loading' && <span>Ищем точки…</span>}
             {poisStatus === 'ready' && pois.length > 0 && <span>{pois.length} точек рядом</span>}
-            {poisStatus === 'error' && <span className="is-error">{poisError}</span>}
+            {poisError && <span className="is-error">Не удалось обновить места. <button type="button" onClick={retryPoiSearch}>Повторить</button></span>}
           </div>
         </div>
         <button

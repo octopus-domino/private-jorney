@@ -3,16 +3,20 @@ interface SharedRequest<T> {
   promise: Promise<T>;
   consumers: number;
   settled: boolean;
+  releaseTimer?: ReturnType<typeof setTimeout>;
 }
 
 /** Shares work while keeping each caller's cancellation independent from other subscribers. */
 export class SharedRequestPool<T> {
   private readonly requests = new Map<string, SharedRequest<T>>();
 
+  constructor(private readonly keepAliveMs = 0) {}
+
   /** A newly opened card never inherits an already-aborted request from the preceding card. */
   run(key: string, loader: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
     if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
     const request = this.requests.get(key) ?? this.create(key, loader);
+    clearTimeout(request.releaseTimer);
     request.consumers++;
     return this.subscribe(key, request, signal);
   }
@@ -24,6 +28,7 @@ export class SharedRequestPool<T> {
     };
     request.promise = request.promise.finally(() => {
       request.settled = true;
+      clearTimeout(request.releaseTimer);
       if (this.requests.get(key) === request) this.requests.delete(key);
     });
     this.requests.set(key, request);
@@ -49,6 +54,15 @@ export class SharedRequestPool<T> {
 
   private release(key: string, request: SharedRequest<T>) {
     request.consumers--;
+    if (request.consumers > 0 || request.settled) return;
+    if (this.keepAliveMs > 0) {
+      request.releaseTimer = setTimeout(() => this.cancelUnused(key, request), this.keepAliveMs);
+      return;
+    }
+    this.cancelUnused(key, request);
+  }
+
+  private cancelUnused(key: string, request: SharedRequest<T>) {
     if (request.consumers > 0 || request.settled) return;
     if (this.requests.get(key) === request) this.requests.delete(key);
     request.controller.abort();

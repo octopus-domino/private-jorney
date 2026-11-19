@@ -7,6 +7,8 @@ interface CacheEntry<T> {
 }
 
 interface QueryCacheOptions {
+  /** Allows bounded read-only searches to finish and populate cache after the UI changes. */
+  keepAliveMs?: number;
   /** Время жизни записи, мс. */
   ttlMs: number;
   /** Максимум записей в кэше; старые вытесняются FIFO. */
@@ -35,7 +37,7 @@ interface QueryCacheOptions {
  *  - при переполнении квоты localStorage запись тихо отключается.
  */
 export class QueryCache<T> {
-  private readonly cancellable = new SharedRequestPool<T>();
+  private readonly cancellable: SharedRequestPool<T>;
   private memory = new Map<string, CacheEntry<T>>();
   private inflight = new Map<string, Promise<T>>();
   private readonly ttlMs: number;
@@ -46,6 +48,7 @@ export class QueryCache<T> {
   private writeTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: QueryCacheOptions) {
+    this.cancellable = new SharedRequestPool<T>(options.keepAliveMs);
     this.ttlMs = options.ttlMs;
     this.maxEntries = options.maxEntries ?? 100;
     this.persist = options.persist ?? false;

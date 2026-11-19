@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests', testMatch: ['ui.spec.ts', 'recording.ui.ts'], fullyParallel: true,
+  testDir: './tests', testMatch: ['ui.spec.ts', 'recording.ui.ts', 'area-recovery.ui.spec.ts'], fullyParallel: true,
   use: { baseURL: 'http://127.0.0.1:5178', trace: 'retain-on-failure' },
   webServer: { command: 'npm run dev -- --host 127.0.0.1 --port 5178 --strictPort', url: 'http://127.0.0.1:5178', reuseExistingServer: false },
   projects: [
