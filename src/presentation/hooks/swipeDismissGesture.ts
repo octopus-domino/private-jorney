@@ -33,7 +33,7 @@ export class SwipeDismissGesture {
     this.reset();
     this.suppressClick = false;
     if (event.touches.length !== 1 || !(event.target instanceof HTMLElement)) return;
-    if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (event.target.closest('input, textarea, select, [contenteditable="true"], .leaflet-container')) return;
     if (!this.canPull(event.target)) return;
     this.initialTransform = this.element.style.transform;
     this.initialTransition = this.element.style.transition;

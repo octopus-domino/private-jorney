@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/journeys/buildings/nearby?**', request => request.fulfill({ json: [codocHouse(house)] }));
   await page.route('**/api/journeys/routes/places**', request => request.fulfill({ json: { available: true, places: [], source: 'codoc' } }));
   await page.route('https://apidata.mos.ru/**', request => request.fulfill({ json: { features: [] } }));
-  await page.route('**/*.tile.openstreetmap.org/**', request => request.abort());
+  await page.route(/https:\/\/(?:[abc]\.)?tile\.openstreetmap\.org\//, request => request.abort());
   await page.route('**/reverse?**', request => request.fulfill({ json: { features: [{ geometry: { coordinates: [start.lng, start.lat] },
     properties: { city: 'Saint Petersburg', country: 'Russia', countrycode: 'RU', street: 'Средний проспект', housenumber: '48' } }] } }));
   await page.route('**/history-source?**', request => {
@@ -91,6 +91,51 @@ test('GPS profile fits the recording sheet and survives reload', async ({ page }
   await expect(mode).toHaveValue('economy');
   await mode.selectOption('precise');
   await expect(page.getByText('Частые точки и активный GPS. Расход батареи выше.', { exact: true })).toBeVisible();
+});
+
+for (const stationary of [true, false]) test(`${stationary ? 'a one-location' : 'a moving return'} recording shows a real map and reopens from the tile cache offline`, async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  let requests = 0;
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+    const context = canvas.getContext('2d')!; context.fillStyle = '#e1e8dd'; context.fillRect(0, 0, 256, 256);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.route(/https:\/\/(?:[abc]\.)?tile\.openstreetmap\.org\//, route => {
+    requests++;
+    return route.fulfill({ body: Buffer.from(png, 'base64'), contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' } });
+  });
+  await page.evaluate(({ lat, lng, stationary }) => {
+    const first = { lat, lng, accuracy: 8, timestamp: Date.now() - 60000 };
+    const points = stationary ? [first] : [first, { ...first, lng: lng + .002, timestamp: Date.now() - 30000 }, { ...first, timestamp: Date.now() }];
+    localStorage.setItem('private-walks/browser-recording/v1', JSON.stringify({
+      id: 'report', startedAt: first.timestamp, endedAt: Date.now(), state: 'stopped', pointCount: points.length,
+      distanceMeters: 0, points,
+    }));
+  }, { ...start, stationary });
+  await page.reload();
+  await page.getByRole('button', { name: 'Записать прогулку', exact: true }).click();
+  await page.locator('.recording-list__open').click();
+  const map = page.getByRole('region', { name: 'Карта записанной прогулки', exact: true });
+  await expect(map.locator('.leaflet-container')).toHaveCSS('opacity', '1');
+  await expect.poll(() => map.locator('.leaflet-tile').evaluateAll(images => images.length > 0
+    && images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  if (stationary) {
+    const marker = (await map.locator('.leaflet-overlay-pane path').boundingBox())!;
+    const bounds = (await map.boundingBox())!;
+    expect(Math.abs(marker.x + marker.width / 2 - bounds.x - bounds.width / 2)).toBeLessThanOrEqual(1);
+    expect(Math.abs(marker.y + marker.height / 2 - bounds.y - bounds.height / 2)).toBeLessThanOrEqual(1);
+    await expect(page.getByText('Сохранено местоположение. Перемещение не зафиксировано; отдельный путь не построен.', { exact: true })).toBeVisible();
+  } else await expect(map.locator('.leaflet-overlay-pane path')).toHaveCount(3);
+  const before = requests;
+  await page.route(/https:\/\/(?:[abc]\.)?tile\.openstreetmap\.org\//, route => { requests++; return route.abort('internetdisconnected'); });
+  await page.reload();
+  await page.getByRole('button', { name: 'Записать прогулку', exact: true }).click();
+  await page.locator('.recording-list__open').click();
+  await expect(map.locator('.leaflet-container')).toHaveCSS('opacity', '1');
+  expect(requests).toBe(before);
+  expect(errors).toEqual([]);
 });
 
 test('an interrupted browser journal is recovered into the archive and can be deleted', async ({ page }) => {

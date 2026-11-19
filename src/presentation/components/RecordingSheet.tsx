@@ -4,6 +4,9 @@ import { useSwipeDismiss } from '../hooks/useSwipeDismiss';
 import { recordedWalks } from '../../infrastructure';
 import type { RecordedWalk } from '../../domain/RecordedWalk';
 import { GPS_MODES, type GpsMode } from '../../domain/GpsMode';
+import { RecordedWalkMap } from './RecordedWalkMap';
+import { hasRecordedMovement, recordedWalkPath, walkPreview } from '../../domain/walkPreview';
+import { walkParagraphs } from '../../domain/walkStory';
 
 /** Recording controls and local reports share a dismissible sheet on phones and a dialog on desktop. */
 export function RecordingSheet({ onClose }: { onClose(): void }) {
@@ -43,7 +46,7 @@ export function RecordingSheet({ onClose }: { onClose(): void }) {
           {!state.records.length && <p className="journey-muted">Здесь появятся пройденные маршруты, картинки пути и истории домов.</p>}
           <div className="recording-list">{state.records.map(record => <article key={record.id}>
             <button className="recording-list__open" onClick={() => select(record.id)}>
-              <img src={svgUrl(record.previewSvg)} alt="Схема пройденного пути" />
+              <img src={svgUrl(walkPreview(recordedWalkPath(record)))} alt="Схема пройденного пути" />
               <span><strong>{record.title}</strong><small>{state.processing.includes(record.id) ? 'Дополняем историями…' : record.places.length ? 'Места по дороге и сохранённый рассказ' : 'Путь сохранён'}</small></span>
             </button>
             <button className="app__icon-btn" aria-label={`Удалить запись ${record.title}`} disabled={state.processing.includes(record.id)} onClick={() => void state.remove(record.id)}>×</button>
@@ -59,9 +62,10 @@ function WalkReport({ walk, processing, onBack }: { walk: RecordedWalk; processi
   return <article className="walk-report">
     <button className="journey-link" onClick={onBack}>← Все записи</button>
     <h3>{walk.title}</h3>
-    <img className="walk-report__preview" src={svgUrl(walk.previewSvg)} alt="Схема вашей прогулки: зелёная точка — начало, охристая — конец" />
-    <p className="journey-muted">Схема пути · начало — зелёная точка, конец — охристая. Доступна без интернета.</p>
-    {walk.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+    <RecordedWalkMap walk={walk} />
+    <p className="journey-muted">{hasRecordedMovement(walk.points) ? 'Карта записи · зелёная отметка — начало, охристая — конец. При возвращении они объединяются.'
+      : 'Сохранённое местоположение · перемещение не зафиксировано.'} Просмотренные участки карты кешируются. Без подложки остаётся сохранённая схема.</p>
+    {(hasRecordedMovement(walk.points) ? walk.paragraphs : walkParagraphs(walk)).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
     {walk.places.map(place => <div className="walk-report__source" key={place.poi.id}>
       <strong>{place.history?.title || place.poi.name}</strong>
       {(place.photoDataUrl || place.history?.imageUrl) && <img loading="lazy" src={place.photoDataUrl || place.history?.imageUrl} alt={place.poi.name} referrerPolicy="no-referrer" />}

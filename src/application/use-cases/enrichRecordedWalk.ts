@@ -9,6 +9,7 @@ import { countRevisits, locateAlongPath, thinTrack } from '../../domain/pathGeom
 import { walkParagraphs, walkPreview } from '../../domain/walkStory';
 import { haversineMeters } from '../../shared/geo';
 import { SEARCH_TIMEOUT_MS } from './areaSearchSession';
+import { hasRecordedMovement, recordedWalkPath } from '../../domain/walkPreview';
 
 interface Corridor { roads(points: TrackPoint[], signal?: AbortSignal): Promise<RoadWay[]> }
 const MAX_DETAILED_PLACES = 12;
@@ -44,6 +45,7 @@ export class RecordedWalkEnricher {
   }
 
   private async match(walk: RecordedWalk, points: TrackPoint[]): Promise<RecordedWalk> {
+    if (!hasRecordedMovement(points)) return { ...walk, matchedPath: points.map(({ lat, lng }) => ({ lat, lng })) };
     const ways = await this.timed(signal => this.corridor.roads(points, signal), 90000);
     const graph = new WalkGraph(ways);
     const match = new WalkMapMatcher(graph, points[0].lat).match(points);
@@ -69,7 +71,8 @@ export class RecordedWalkEnricher {
   private locate(points: Poi[], walk: RecordedWalk): RecordedPlace[] {
     const path = walk.matchedPath?.length ? walk.matchedPath : walk.points;
     return points.flatMap(poi => {
-      const position = locateAlongPath(poi, path);
+      const position = hasRecordedMovement(walk.points) ? locateAlongPath(poi, path)
+        : { distance: haversineMeters(poi, walk.points[0]), progress: 0, side: 'nearby' as const };
       if (!position || position.distance > 65) return [];
       const nearest = walk.points.reduce((best, point) => Math.abs(point.lat - poi.lat) + Math.abs(point.lng - poi.lng)
         < Math.abs(best.lat - poi.lat) + Math.abs(best.lng - poi.lng) ? point : best);
@@ -79,7 +82,7 @@ export class RecordedWalkEnricher {
   }
 
   private describe(walk: RecordedWalk): RecordedWalk {
-    return { ...walk, paragraphs: walkParagraphs(walk), previewSvg: walkPreview(walk.matchedPath ?? thinTrack(walk.points)) };
+    return { ...walk, paragraphs: walkParagraphs(walk), previewSvg: walkPreview(recordedWalkPath(walk)) };
   }
 
   private async timed<T>(action: (signal: AbortSignal) => Promise<T>, timeout = LOOKUP_TIMEOUT_MS): Promise<T> {

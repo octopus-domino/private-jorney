@@ -5,6 +5,7 @@ import './building-footprints.test';
 import './ready-walks.test';
 import './codoc-search-transport.test';
 import './citywalls-local-index.test';
+import './walk-preview.test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DOMParser } from 'linkedom';
