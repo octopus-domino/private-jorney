@@ -29,7 +29,7 @@ export class HttpRoutePlanner implements RoutePlanner {
       mode: 'foot',
     };
 
-    const response = await this.http(url, {
+    const request = () => this.http(url, {
       method: 'POST',
       signal,
       headers: {
@@ -38,6 +38,13 @@ export class HttpRoutePlanner implements RoutePlanner {
       },
       body: JSON.stringify(body),
     });
+
+    let response = await request();
+    if (response.status === 503 && !signal?.aborted) {
+      await new Promise<void>(resolve => setTimeout(resolve, 1000));
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      response = await request();
+    }
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');

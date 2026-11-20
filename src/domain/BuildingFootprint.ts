@@ -2,6 +2,7 @@ export interface FootprintPoint { lat: number; lng: number }
 export interface BuildingFootprint {
   id: string;
   address: string;
+  facts?: { year?: string; levels?: string; material?: string; height?: string };
   /** Each polygon contains an outer ring followed by courtyard/hole rings. */
   polygons: FootprintPoint[][][];
 }

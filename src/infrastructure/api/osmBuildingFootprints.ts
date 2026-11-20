@@ -9,12 +9,14 @@ import { readExternalPage } from './readExternalPage';
 const AREA_LATITUDE = 0.002, AREA_LONGITUDE = 0.004, MARGIN = 0.0003;
 const DAY_MS = 86400000, REQUEST_TIMEOUT_MS = 10000;
 const pointSchema = z.object({ lat: z.number().finite(), lng: z.number().finite() });
-const footprintsSchema = z.array(z.object({ id: z.string(), address: z.string(), polygons: z.array(z.array(z.array(pointSchema).min(4)).min(1)).min(1) }));
+const footprintsSchema = z.array(z.object({ id: z.string(), address: z.string(),
+  facts: z.object({ year: z.string().optional(), levels: z.string().optional(), material: z.string().optional(),
+    height: z.string().optional() }).optional(), polygons: z.array(z.array(z.array(pointSchema).min(4)).min(1)).min(1) }));
 
 /** Cache-Aside: a small interactive map area is read once; only building addresses and outlines are retained. */
 export class OsmBuildingFootprints {
   private readonly requests = new SharedRequestPool<BuildingFootprint[]>();
-  private readonly cache = new PersistentSuccessCache<BuildingFootprint[]>('private-walks/cache/building-footprints/v1', DAY_MS,
+  private readonly cache = new PersistentSuccessCache<BuildingFootprint[]>('private-walks/cache/building-footprints/v2', DAY_MS,
     raw => { const parsed = footprintsSchema.safeParse(raw); return parsed.success ? parsed.data : undefined; }, undefined, undefined, 12);
 
   constructor(private readonly read = readExternalPage) {}

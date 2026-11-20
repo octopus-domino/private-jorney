@@ -49,7 +49,16 @@ function relationPolygons(relation: Element, ways: Ways, nodes: Map<string, Foot
   return shells.map(shell => [shell, ...holes.filter(hole => insideFootprintRing(hole[0], shell))]);
 }
 
-/** Parses address geometry only; OSM building levels/materials never replace the official technical passport. */
+function buildingFacts(element: Element) {
+  const values = tags(element);
+  const year = values.get('start_date');
+  const levels = values.get('building:levels');
+  const material = values.get('building:material');
+  const height = values.get('height');
+  return year || levels || material || height ? { facts: { year, levels, material, height } } : {};
+}
+
+/** Parses addressed outlines with published OpenStreetMap tags when present. */
 export function parseOsmBuildingFootprints(xml: string): BuildingFootprint[] {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   if (doc.documentElement.tagName !== 'osm' || doc.querySelector('parsererror')) throw new Error('Invalid OSM map response');
@@ -63,7 +72,7 @@ export function parseOsmBuildingFootprints(xml: string): BuildingFootprint[] {
   const memberIds = new Set(relations.flatMap(relation => Array.from(relation.querySelectorAll('member')).map(member => member.getAttribute('ref'))));
   const complex = relations.flatMap(relation => {
     const name = address(relation), polygons = relationPolygons(relation, ways, nodes);
-    return name && polygons ? [{ id: `relation:${relation.getAttribute('id')}`, address: name, polygons }] : [];
+    return name && polygons ? [{ id: `relation:${relation.getAttribute('id')}`, address: name, polygons, ...buildingFacts(relation) }] : [];
   });
   return [...complex, ...wayElements.flatMap(way => simpleBuilding(way, memberIds, nodes))];
 }
@@ -73,5 +82,5 @@ function simpleBuilding(way: Element, members: Set<string | null>, nodes: Map<st
   const name = address(way), boundary = refs(way);
   if (!name || boundary.length < 4 || boundary[0] !== boundary.at(-1)) return [];
   const rings = coordinates([boundary], nodes);
-  return rings ? [{ id: `way:${way.getAttribute('id')}`, address: name, polygons: [rings] }] : [];
+  return rings ? [{ id: `way:${way.getAttribute('id')}`, address: name, polygons: [rings], ...buildingFacts(way) }] : [];
 }

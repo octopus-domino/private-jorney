@@ -4,7 +4,33 @@ import { summarizeBuildingProfile, BUILDING_CRITERIA } from '../../application/u
 import { usePoiEnrichment } from '../hooks/usePoiEnrichment';
 import { MAINTENANCE_STANDARD_URL } from '../../domain/maintenancePolicy';
 import { ApartmentListingsSection } from './ApartmentListingsSection';
+import { OsmBuildingFootprints } from '../../infrastructure/api/osmBuildingFootprints';
 import { GorodSourceError } from '../../infrastructure/api/gorodSourceError';
+
+const footprints = new OsmBuildingFootprints();
+const osmBuilding = {
+  supports: () => true,
+  async lookup(poi: Poi, signal?: AbortSignal) {
+    return (await footprints.lookup(poi, signal)).building;
+  },
+};
+
+function MapBuildingDetails({ poi }: { poi: Poi }) {
+  const { data } = usePoiEnrichment(poi, osmBuilding);
+  if (!data) return null;
+  const details = [
+    ['Дата постройки', data.facts?.year], ['Этажей', data.facts?.levels],
+    ['Материал', data.facts?.material], ['Высота', data.facts?.height],
+  ];
+  const [kind, id] = data.id.split(':');
+  return <section className="source-state">
+    <strong>{data.address}</strong>
+    <dl className="building-facts">{details.filter(([, value]) => value).map(([label, value]) =>
+      <div className="building-fact" key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+    <a className="source-link" href={`https://www.openstreetmap.org/${kind}/${id}`}
+      target="_blank" rel="noopener noreferrer">Сведения об объекте в OpenStreetMap ↗</a>
+  </section>;
+}
 
 export function BuildingProfileSection({ poi }: { poi: Poi }) {
   const { data: profile, status, retry, error } = usePoiEnrichment(poi, buildingProfileRepository);
@@ -17,6 +43,7 @@ export function BuildingProfileSection({ poi }: { poi: Poi }) {
       {status === 'loading' && <p className="source-state">Загружаем паспорт дома…</p>}
       {status === 'error' && <div className="source-state"><p>Не удалось получить сведения о доме.</p>{error instanceof GorodSourceError && <p>{error.message}</p>}<button type="button" className="btn" onClick={retry}>Повторить</button></div>}
       {status === 'empty' && <p className="source-state">Не удалось однозначно найти этот дом в городском реестре.</p>}
+      {(status === 'error' || status === 'empty') && <MapBuildingDetails poi={poi} />}
       {profile && <>
         <p className="building-profile__address">{profile.address}</p>
         {profile.passportStatus && <div className="source-state"><p>{profile.passportStatus === 'updating'
