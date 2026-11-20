@@ -138,21 +138,19 @@ test('a group of twelve opens its complete unique membership even when zoom spli
 });
 
 test('ordinary map tap opens the same house profile, Citywalls paragraphs and photo', async ({ page }) => {
-  let clicked = { lat: first.lat, lng: first.lng };
+  const addressPoint = { lat: 59.94207, lng: 30.30845 };
+  await page.route('**/citywallsIndex.json', request =>
+    request.fulfill({ json: [[1709, addressPoint.lat, addressPoint.lng]] }));
   await page.route('**/reverse?**', async (request) => {
-    const url = new URL(request.request().url());
-    clicked = { lat: Number(url.searchParams.get('lat')), lng: Number(url.searchParams.get('lon')) };
-    await request.fulfill({ json: { features: [{ geometry: { coordinates: [clicked.lng, clicked.lat] }, properties: { street: '8-я Васильевского острова линия', housenumber: '45/34', city: 'Санкт-Петербург' } }] } });
+    await request.fulfill({ json: { features: [{ geometry: { coordinates: [addressPoint.lng, addressPoint.lat] }, properties: { street: '8-я Васильевского острова линия', housenumber: '45/34', city: 'Санкт-Петербург' } }] } });
   });
   await page.route('**/w/api.php?**', (request) => request.fulfill({ json: { query: { pages: [] } } }));
   await page.route('**/history-source?**', async (request) => {
     const url = new URL(new URL(request.request().url()).searchParams.get('url')!);
     if (url.pathname === '/facilities/search/ajax/') {
-      await request.fulfill({ json: [{ data: 36556, lat: clicked.lat, lon: clicked.lng, main_address: address }] });
-    } else if (url.pathname === '/map_around.html') {
-      await request.fulfill({ body: '<script>const site={SID:"s=abc123"};</script>' });
-    } else if (url.pathname === '/include/map_handler.php') {
-      await request.fulfill({ json: { result: 'ok', geodata: { features: [{ geometry: { geometries: [{ type: 'Point', id: 1709, title: 'Исторический дом', coordinates: [clicked.lng, clicked.lat] }] } }] } } });
+      await request.fulfill({ json: [{ data: 36556, lat: addressPoint.lat, lon: addressPoint.lng, main_address: address }] });
+    } else if (url.hostname === 'api.openstreetmap.org') {
+      await request.fulfill({ contentType: 'text/xml', body: '<osm version="0.6"></osm>' });
     } else if (/\/house\d+\.html/.test(url.pathname)) {
       await request.fulfill({ body: '<img src="https://p2.citywalls.ru/thumb0_9-9530.jpg">' + fixture('citywalls-house.html') });
     } else await request.fallback();
