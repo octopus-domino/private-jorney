@@ -157,3 +157,5 @@
   .app__sidebar-scroll { overscroll-behavior: contain; }
 }
 .map-view.leaflet-container { background: #e7ebe4; }
+/* A subpixel overlap hides seams between raster tiles at fractional browser zoom. */
+.map-view .leaflet-tile-pane .leaflet-tile { scale: 1.00390625; }
