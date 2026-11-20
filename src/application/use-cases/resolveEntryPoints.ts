@@ -29,7 +29,7 @@ export function resolveEntryPoints(search: string): EntryResolution {
       const [latRaw, lngRaw] = trimmed.split(',');
       const lat = Number(latRaw);
       const lng = Number(lngRaw);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 85 || Math.abs(lng) > 180) {
         result.hadErrors = true;
         continue;
       }
@@ -37,6 +37,9 @@ export function resolveEntryPoints(search: string): EntryResolution {
       result.anchors.push({ id: newId('anchor'), lat, lng });
     }
   }
+
+  const label = params.get('embed') === 'codoc' ? params.get('anchorLabel')?.trim().slice(0, 240) : undefined;
+  if (label && result.anchors.length === 1) result.anchors[0] = { ...result.anchors[0], label };
 
   const radius = params.get('radius');
   if (radius) {

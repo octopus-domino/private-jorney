@@ -107,6 +107,7 @@ export function MapView({
   const [clusterPoiIds, setClusterPoiIds] = useState<string[]>([]);
   const clusterSheetRef = useSwipeDismiss<HTMLElement>(() => setClusterPoiIds([]), clusterPoiIds.length > 0);
 
+  const initialAnchor = useRef(anchors[0]);
   const onMapClickRef = useRef(onMapClick);
   const onViewportChangeRef = useRef(onViewportChange);
   onViewportChangeRef.current = onViewportChange;
@@ -118,11 +119,13 @@ export function MapView({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, {
+    const container = containerRef.current;
+    const first = initialAnchor.current;
+    const map = L.map(container, {
       zoomControl: true,
       attributionControl: false,
       maxZoom: MAX_MAP_ZOOM,
-    }).setView([59.9386, 30.3141], 13);
+    }).setView(first ? [first.lat, first.lng] : [59.9386, 30.3141], first ? 15 : 13);
 
     L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -189,9 +192,12 @@ export function MapView({
       const bounds = map.getBounds();
       onViewportChangeRef.current?.({ south: bounds.getSouth(), west: bounds.getWest(), north: bounds.getNorth(), east: bounds.getEast() });
     };
+    const resize = new ResizeObserver(() => map.invalidateSize({ pan: false, debounceMoveend: true }));
+    resize.observe(container);
     map.on('moveend', publishBounds);
     publishBounds();
     return () => {
+      resize.disconnect();
       map.off('click', handleClick);
       map.off('moveend', publishBounds);
       map.off('zoomstart', closeCluster);

@@ -101,3 +101,59 @@
 /* GPS controls remain readable in the narrow recording sheet. */
 .gps-mode { display: grid; gap: 8px; width: 100%; text-align: left; margin: 12px 0; }
 .gps-mode select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border, #ddd); border-radius: 10px; background: #fff; color: inherit; font: inherit; }
+
+/* Walking planner */
+.app {
+  --panel: #fff;
+  --text: #203c32;
+  --muted: #576e63;
+  --accent: #26674e;
+  --accent-soft: #e6f1ea;
+  --border: #dce6de;
+}
+.app__header {
+  padding-inline: clamp(12px, 2vw, 26px);
+  gap: 10px;
+  min-height: 58px;
+}
+.app__header-title { flex: 1; }
+.app__title {
+  font-size: clamp(16px, 2vw, 20px);
+  font-weight: 720;
+  letter-spacing: -.025em;
+  text-overflow: ellipsis;
+}
+.app__header-actions { display: flex; gap: 4px; flex: 0 0 auto; align-items: center; }
+.app__header .app__icon-btn { border-color: transparent; min-width: 36px; }
+.app__header .app__icon-btn:hover, .app__header .app__icon-btn:focus-visible { background: var(--accent-soft); }
+.app__header .app__record-btn { color: #984432; }
+.app__header .recording-indicator { border-color: #e7b3a4; background: #fff2ed; }
+.app__sidebar {
+  background: #f6f8f5;
+}
+.app__sidebar-scroll { padding: 14px; gap: 10px; }
+.app__sidebar .panel { border-radius: 15px; }
+.app__sidebar .panel__header h2 { font-weight: 720; }
+.app__sidebar-footer { padding: 12px 14px max(12px, env(safe-area-inset-bottom)); }
+.app__sidebar-footer .btn { min-height: 44px; border-radius: 11px; font-weight: 650; }
+.app__toolbar .segmented {
+  border-color: #d1dfd6;
+  box-shadow: 0 2px 12px #1a3f2820;
+}
+.app__toolbar .segmented button { min-height: 36px; font-weight: 650; }
+.app__main .leaflet-top.leaflet-left { top: 54px; }
+.app__toolbar .legend:empty { display: none; }
+.app :is(button, input, select):focus-visible { outline: 2px solid #3e8d6e; outline-offset: 2px; }
+
+@media (max-width: 780px) {
+  .app__header { gap: 4px; padding-inline: 10px; }
+  .app__header-actions { gap: 0; }
+  .app__header .app__icon-btn { min-width: 34px; width: 34px; }
+}
+@media (max-width: 700px) {
+  .app__main .leaflet-top.leaflet-left { top: auto; bottom: calc(136px + env(safe-area-inset-bottom)); }
+  .app__mobile-bar { backdrop-filter: none; background: #fff; }
+  .app__mobile-bar-btn { min-height: 44px; }
+  .app__sidebar-scroll { overscroll-behavior: contain; }
+}
+.map-view.leaflet-container { background: #e7ebe4; }

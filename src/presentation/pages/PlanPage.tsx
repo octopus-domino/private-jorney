@@ -407,10 +407,6 @@ export function PlanPage({ onHome, onRecord }: { onHome?(): void; onRecord?(): v
   return (
     <div className={`app${drawerOpen ? ' app--drawer-open' : ''}`}>
       <header className="app__header">
-        <button type="button" className="app__icon-btn" aria-label="Готовые прогулки" title="Готовые прогулки" onClick={() => setShowReady(true)}>▤</button>
-        {onHome && <button className="app__icon-btn" aria-label="Главная" title="Главная" onClick={onHome}>⌂</button>}
-        {onRecord && <button className={`app__icon-btn${recordingActive ? ' recording-indicator' : ''}`} aria-label="Запись прогулки" title="Запись прогулки" onClick={onRecord}>●</button>}
-        <button type="button" className="app__icon-btn" aria-label="Избранные места" title="Избранные места" onClick={() => setShowFavorites(true)}>★</button>
         <div className="app__header-title">
           <input
             className="app__title"
@@ -423,6 +419,12 @@ export function PlanPage({ onHome, onRecord }: { onHome?(): void; onRecord?(): v
             {poisStatus === 'ready' && pois.length > 0 && <span>{pois.length} точек рядом</span>}
             {poisError && <span className="is-error">{poisError === INCOMPLETE_AREA_MESSAGE ? poisError : 'Не удалось обновить места.'} <button type="button" onClick={retryPoiSearch}>Повторить</button></span>}
           </div>
+        </div>
+        <div className="app__header-actions">
+          <button type="button" className="app__icon-btn" aria-label="Готовые прогулки" title="Готовые прогулки" onClick={() => setShowReady(true)}>▤</button>
+          {onHome && <button className="app__icon-btn" aria-label="Главная" title="Главная" onClick={onHome}>⌂</button>}
+          {onRecord && <button className={`app__icon-btn app__record-btn${recordingActive ? ' recording-indicator' : ''}`} aria-label="Запись прогулки" title="Запись прогулки" onClick={onRecord}>●</button>}
+          <button type="button" className="app__icon-btn" aria-label="Избранные места" title="Избранные места" onClick={() => setShowFavorites(true)}>★</button>
         </div>
         <button
           type="button"
@@ -652,7 +654,7 @@ export function PlanPage({ onHome, onRecord }: { onHome?(): void; onRecord?(): v
           </div>
 
           {draft.view === 'map' ? (
-            <MapView
+            hydrated && <MapView
               recordedPath={recordingActive ? recordedPath : undefined}
               onViewportChange={updateViewport}
               focusRequest={mapFocus}
