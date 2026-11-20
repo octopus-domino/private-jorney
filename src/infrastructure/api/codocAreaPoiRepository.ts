@@ -31,6 +31,7 @@ export class CodocAreaPoiRepository implements PoiRepository {
         try { this.merge(points, await task()); successes++; params.onPartial?.([...points.values()]); }
         catch (error) {
           if (params.signal?.aborted) throw error;
+          params.onIncomplete?.();
           console.info('codoc discovery query unavailable; retaining other successful categories', error);
         }
       }
@@ -51,6 +52,7 @@ export class CodocAreaPoiRepository implements PoiRepository {
     const themes = selected.map(item => item.backendTheme ?? 'attractions');
     const result = await this.places.search({ lat: anchor.lat, lon: anchor.lng, themes,
       radiusKm: params.radiusMeters / 1000, language: 'ru', signal: params.signal });
+    if (result.complete === false) params.onIncomplete?.();
     if (!result.available && !result.places.length) throw new Error('Источник мест временно недоступен.');
     return result.places.flatMap(place => {
       const matched = (place.meta?.themes ?? place.meta?.theme ?? (themes.length === 1 ? themes[0] : '')).split(',');

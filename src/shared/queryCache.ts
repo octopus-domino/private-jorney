@@ -6,7 +6,8 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-interface QueryCacheOptions {
+interface QueryCacheOptions<T> {
+  shouldCache?: (value: T) => boolean;
   /** Allows bounded read-only searches to finish and populate cache after the UI changes. */
   keepAliveMs?: number;
   /** Время жизни записи, мс. */
@@ -47,7 +48,7 @@ export class QueryCache<T> {
   private readonly name: string;
   private writeTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(options: QueryCacheOptions) {
+  constructor(private readonly options: QueryCacheOptions<T>) {
     this.cancellable = new SharedRequestPool<T>(options.keepAliveMs);
     this.ttlMs = options.ttlMs;
     this.maxEntries = options.maxEntries ?? 100;
@@ -121,6 +122,7 @@ export class QueryCache<T> {
   }
 
   private set(key: string, value: T): void {
+    if (this.options.shouldCache?.(value) === false) return;
     const expiresAt = Date.now() + this.ttlMs;
     this.memory.set(key, { value, expiresAt });
 

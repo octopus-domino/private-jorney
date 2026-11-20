@@ -1,3 +1,4 @@
+import { INCOMPLETE_AREA_MESSAGE } from '../../application/use-cases/areaSearchSession';
 // src/presentation/pages/PlanPage.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apartmentListingsRepository, draftStore, placeInfoRepository, routePlanner } from '../../infrastructure';
@@ -420,7 +421,7 @@ export function PlanPage({ onHome, onRecord }: { onHome?(): void; onRecord?(): v
           <div className="app__header-meta">
             {poisStatus === 'loading' && <span>Ищем точки…</span>}
             {poisStatus === 'ready' && pois.length > 0 && <span>{pois.length} точек рядом</span>}
-            {poisError && <span className="is-error">Не удалось обновить места. <button type="button" onClick={retryPoiSearch}>Повторить</button></span>}
+            {poisError && <span className="is-error">{poisError === INCOMPLETE_AREA_MESSAGE ? poisError : 'Не удалось обновить места.'} <button type="button" onClick={retryPoiSearch}>Повторить</button></span>}
           </div>
         </div>
         <button

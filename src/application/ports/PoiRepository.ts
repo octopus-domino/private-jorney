@@ -7,6 +7,7 @@ export interface PoiSearchParams {
   categoryIds: string[];
   signal?: AbortSignal;
   onPartial?(points: Poi[]): void;
+  onIncomplete?(): void;
 }
 
 export interface PoiRepository {

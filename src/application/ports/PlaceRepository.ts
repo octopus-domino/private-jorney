@@ -43,6 +43,7 @@ export interface PlaceDto {
 
 export interface PlaceResultDto {
   available: boolean;
+  complete?: boolean;
   places: PlaceDto[];
   source: string;
 }

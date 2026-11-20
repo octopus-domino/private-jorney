@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AreaSearchSession, type AreaSearchUpdate } from '../src/application/use-cases/areaSearchSession';
+import { QueryCache } from '../src/shared/queryCache';
 import { SharedRequestPool } from '../src/shared/sharedRequestPool';
 import type { Poi } from '../src/domain/Poi';
 
@@ -38,4 +39,31 @@ test('reopening an area joins its pending read instead of cancelling and resendi
   await cancelled;
   assert.equal(await two, 41);
   assert.equal(calls, 1);
+});
+
+test('partial coverage merges cached points and makes another search possible', async () => {
+  const inner: Poi = { id: 'inner', name: 'Inner', lat: 59.93155, lng: 30.3053, source: 'overpass', categoryIds: ['bars'], facts: [] };
+  const outer = { ...inner, id: 'outer', lng: 30.32 };
+  const updates: AreaSearchUpdate[] = [];
+  const session = new AreaSearchSession({ search: async params => {
+    params.onPartial?.([outer]);
+    params.onIncomplete?.();
+    return [outer];
+  } }, { anchors: [inner], radiusMeters: 1500, categoryIds: ['bars'] },
+  update => updates.push(update), 1000, [inner]);
+  const stop = session.start();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  stop();
+  assert.deepEqual(updates.map(update => update.points.map(point => point.id)), [['inner'], ['inner', 'outer'], ['inner', 'outer']]);
+  assert.equal(updates.at(-1)?.error, 'Часть области не проверена.');
+});
+
+test('a partial response does not block retry through the query cache', async () => {
+  const cache = new QueryCache<{ complete: boolean }>({ ttlMs: 60000, shouldCache: result => result.complete });
+  let calls = 0;
+  const load = async () => ({ complete: ++calls > 1 });
+  assert.deepEqual(await cache.getAbortable('area', load), { complete: false });
+  assert.deepEqual(await cache.getAbortable('area', load), { complete: true });
+  assert.deepEqual(await cache.getAbortable('area', load), { complete: true });
+  assert.equal(calls, 2);
 });

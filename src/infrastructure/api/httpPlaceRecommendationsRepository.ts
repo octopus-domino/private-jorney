@@ -15,7 +15,8 @@ const THEMED_CACHE = new QueryCache<PlaceResultDto>({
   ttlMs: 60 * 60 * 1000,
   maxEntries: 50,
   persist: true,
-  storageKey: 'private-walks/cache/themed/v3',
+  storageKey: 'private-walks/cache/themed/v4',
+  shouldCache: result => result.complete !== false,
 });
 
 /** Обычные attractions: 1 час. */
@@ -55,7 +56,7 @@ export class HttpPlaceRecommendationsRepository implements PlaceRepository {
     const theme = params.theme ?? '';
     const key = [
         themes.length ? 'area' : 'recommendation',
-      quantizeLatLng(params.lon, params.lat),
+      themes.length ? `${params.lat},${params.lon}` : quantizeLatLng(params.lon, params.lat),
       themes.join(',') || theme,
       themes.length ? String(params.radiusKm ?? 1.5) : String(params.maxStops ?? ''),
       params.language,
@@ -141,7 +142,7 @@ export class HttpPlaceRecommendationsRepository implements PlaceRepository {
     }
 
     const data = (await response.json()) as PlaceResultDto;
-    if (!data.available) throw new Error('places unavailable');
+    if (!data.available && data.complete !== false) throw new Error('places unavailable');
     return data;
   }
 
