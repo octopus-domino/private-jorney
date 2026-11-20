@@ -1,0 +1,25 @@
+.walk-speed-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  color: #263f35;
+  font-size: .8rem;
+}
+
+.walk-speed-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.walk-speed-legend li span {
+  width: 14px;
+  border-top: 3px solid;
+}
+
+.walk-speed-legend li .walk-speed-legend__gap {
+  border-top-style: dashed;
+}

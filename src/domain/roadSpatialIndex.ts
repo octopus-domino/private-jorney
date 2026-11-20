@@ -3,7 +3,7 @@ import { projectToSegment } from './pathGeometry';
 
 export interface RoadCandidate extends GeoPoint { edge: GraphEdge | null; fraction: number; distance: number }
 const CELL_METERS = 80;
-const MAX_CANDIDATES = 3;
+const MAX_CANDIDATES = 4;
 
 /** Uniform spatial grid limits candidate projections to nearby road segments instead of scanning the whole graph. */
 export class RoadSpatialIndex {
@@ -17,12 +17,22 @@ export class RoadSpatialIndex {
 
   /** Includes a GPS fallback candidate so missing road data cannot erase an observed part of the walk. */
   candidates(point: GeoPoint, accuracy: number): RoadCandidate[] {
-    const radius = Math.min(90, Math.max(25, accuracy * 2)), [x, y] = this.cell(point);
+    const radius = Math.min(90, Math.max(38, accuracy * 2)), [x, y] = this.cell(point);
     const distance = Math.ceil(radius / CELL_METERS), edges = new Set<GraphEdge>();
     for (let dx = -distance; dx <= distance; dx++) for (let dy = -distance; dy <= distance; dy++)
       this.cells.get(`${x + dx}:${y + dy}`)?.forEach(edge => edges.add(edge));
-    const candidates = [...edges].map(edge => ({ ...projectToSegment(point, edge.start, edge.end), edge }))
-      .filter(candidate => candidate.distance <= radius).sort((a, b) => a.distance - b.distance).slice(0, MAX_CANDIDATES);
+    const nearest = [...edges].map(edge => ({ ...projectToSegment(point, edge.start, edge.end), edge }))
+      .filter(candidate => candidate.distance <= radius).sort((a, b) => a.distance - b.distance);
+    const candidates = nearest.slice(0, 2);
+    const ways = new Set(candidates.map(candidate => candidate.edge.id.split(':')[0]));
+    // Retain a competing sidewalk even when several nearer pieces belong to the same OSM way.
+    for (const candidate of nearest.slice(2)) {
+      if (candidates.length === MAX_CANDIDATES) break;
+      const way = candidate.edge.id.split(':')[0];
+      if (ways.has(way)) continue;
+      ways.add(way);
+      candidates.push(candidate);
+    }
     return [...candidates, { ...point, edge: null, fraction: 0, distance: 0 }];
   }
 

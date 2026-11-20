@@ -11,6 +11,10 @@ import { categoryColor, categoryIcon, categoryLabel } from '../../domain/PoiCate
 import { escapeHtml } from '../../shared/html';
 import { useSwipeDismiss } from '../hooks/useSwipeDismiss';
 import type { ListingSearchArea } from '../../application/ports/ApartmentListingsRepository';
+import type { TrackPoint } from '../../domain/RecordedWalk';
+import { walkSpeedSpans } from '../../domain/walkSpeed';
+import { paintWalkSpeed } from './recordingSpeedLayer';
+import { WalkSpeedLegend } from './WalkSpeedLegend';
 
 export interface PendingSpot {
   lat: number;
@@ -18,7 +22,7 @@ export interface PendingSpot {
 }
 
 interface MapViewProps {
-  recordedPath?: PendingSpot[];
+  recordedPath?: TrackPoint[];
   onViewportChange?(area: ListingSearchArea): void;
   focusRequest?: PendingSpot & { id: string };
   anchors: AnchorPoint[];
@@ -201,8 +205,7 @@ export function MapView({
     const layer = recordingLayerRef.current;
     if (!layer) return;
     layer.clearLayers();
-    if (recordedPath.length > 1) L.polyline(recordedPath.map(point => [point.lat, point.lng] as L.LatLngTuple),
-      { color: '#9b543b', weight: 4, opacity: 0.85, interactive: false }).addTo(layer);
+    if (recordedPath.length > 1) paintWalkSpeed(layer, walkSpeedSpans(recordedPath));
     const last = recordedPath.at(-1);
     if (last) L.circleMarker([last.lat, last.lng], { radius: 6, color: '#fff', fillColor: '#9b543b', fillOpacity: 1, interactive: false }).addTo(layer);
   }, [recordedPath]);
@@ -364,6 +367,7 @@ export function MapView({
     && (!hideUnselected || selectedPoiIds.includes(poi.id) || poi.id === poiDetailId));
   return <>
     <div ref={containerRef} className="map-view" />
+    {recordedPath.length > 1 && <WalkSpeedLegend />}
     {clusterPois.length > 0 && <section ref={clusterSheetRef} className="map-cluster-panel" role="dialog" aria-label="Точки в группе">
       <header><strong>Точки в этой области · {clusterPois.length}</strong><button type="button" className="btn" aria-label="Закрыть группу" onClick={() => setClusterPoiIds([])}>×</button></header>
       <div className="map-cluster-panel__list">{clusterPois.map((poi) => <button type="button" key={poi.id} onClick={() => { setClusterPoiIds([]); onPoiDetailsRef.current(poi.id); }}>

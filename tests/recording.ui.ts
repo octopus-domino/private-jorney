@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const start = { lat: 59.94, lng: 30.27 };
 const house = { lat: 59.9401, lng: 30.2703 };
+const rightHouse = { lat: 59.93988, lng: 30.27015 };
 const codocHouse = (point: { lat: number; lng: number }, id = 1709, name = 'Дом на прогулке') => ({
   id, name, latitude: point.lat, longitude: point.lng, address: null, osmId: null, constructionYear: null,
   constructionPeriod: null, architect: null, style: null, heritageStatus: null, source: 'codoc', sourceUrl: `https://www.citywalls.ru/house${id}.html`,
@@ -18,10 +19,14 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/history-source?**', request => {
     const source = new URL(new URL(request.request().url()).searchParams.get('url')!);
     if (source.hostname === 'overpass-api.de') return request.fulfill({ json: { elements: source.searchParams.get('data')!.includes('way[highway]')
-      ? [{ id: 1, nodes: [1, 2], geometry: [{ lat: start.lat, lon: start.lng }, { lat: start.lat, lon: start.lng + 0.001 }], tags: { highway: 'footway' } }] : [] } });
+      ? [{ id: 1, nodes: [1, 2, 3], geometry: [0, 0.0005, 0.001].map(offset => ({ lat: start.lat, lon: start.lng + offset })),
+        tags: { highway: 'residential', name: 'Первая улица' } },
+      { id: 2, nodes: [2, 4], geometry: [{ lat: start.lat, lon: start.lng + 0.0005 },
+        { lat: start.lat + 0.001, lon: start.lng + 0.0005 }], tags: { highway: 'residential', name: 'Вторая улица' } }] : [] } });
     if (source.pathname === '/map_around.html') return request.fulfill({ body: 'SID:"s=testsession"' });
     if (source.pathname === '/include/map_handler.php') return request.fulfill({ json: { result: 'ok', geodata: { features: [{ geometry: { geometries: [{ type: 'Point', id: 1709, title: 'Дом на прогулке', coordinates: [house.lng, house.lat] }] } }] } } });
-    if (source.hostname === 'www.citywalls.ru') return request.fulfill({ body: readFileSync('tests/fixtures/citywalls-house.html', 'utf8') });
+    if (source.hostname === 'www.citywalls.ru') return request.fulfill({ body: readFileSync('tests/fixtures/citywalls-house.html', 'utf8')
+      + '<div class="cssPhotoList"><div class="photo"><img src="https://p1.citywalls.ru/photo_test.jpg"></div></div>' });
     return request.fulfill({ status: 403, body: 'Unavailable' });
   });
   await page.goto('/');
@@ -41,6 +46,12 @@ test('welcome and house guide fit mobile and desktop and allow exploration witho
 });
 
 test('record start-stop persists full GPS, factual report and preview across an offline reload', async ({ page }, info) => {
+  await page.route('https://p1.citywalls.ru/photo_test.jpg', route => route.fulfill({
+    contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#dfeae2"/></svg>',
+  }));
+  await page.route('**/api/journeys/buildings/nearby?**', request => request.fulfill({ json: [
+    codocHouse(house), codocHouse(rightHouse, 1710, 'Дом справа'),
+  ] }));
   await page.addInitScript(() => {
     let callback: PositionCallback | undefined;
     Object.defineProperty(navigator, 'geolocation', { value: {
@@ -67,7 +78,28 @@ test('record start-stop persists full GPS, factual report and preview across an 
   await sheet.locator('.recording-list__open').click();
   await expect(sheet.locator('.walk-report__preview')).toHaveJSProperty('complete', true);
   await expect(sheet.locator('.walk-report > p').nth(1)).toContainText('Санкт-Петербург');
-  await expect(sheet.locator('.walk-report > p').nth(2)).toContainText('Слева');
+  const speed = sheet.getByRole('button', { name: 'Карта скорости' });
+  await speed.click();
+  await expect(sheet.getByRole('list', { name: 'Скорость на маршруте' })).toBeVisible();
+  await expect(sheet.locator('.walk-speed-line').first()).toBeAttached();
+  await expect(sheet.locator('.walk-report-map__canvas')).toHaveCSS('opacity', '1');
+  await speed.click();
+  const section = sheet.locator('.walk-timeline__section').first();
+  await expect(section.getByRole('heading')).toHaveText('Место выхода → Первая улица × Вторая улица');
+  const left = section.locator('.walk-timeline__place--left');
+  const right = section.locator('.walk-timeline__place--right');
+  await expect(left.getByText('Слева', { exact: true })).toBeVisible();
+  await expect(right.getByText('Справа', { exact: true })).toBeVisible();
+  await expect(left.locator('img')).toHaveAttribute('src', 'https://p1.citywalls.ru/photo_test.jpg');
+  const positions = await section.evaluate(node => {
+    const point = (side: string, item: string) => node.querySelector(`.walk-timeline__place--${side} .walk-timeline__${item}`)!.getBoundingClientRect();
+    return { left: point('left', 'card').left, right: point('right', 'card').left,
+      leftDot: point('left', 'dot').top, rightDot: point('right', 'dot').top };
+  });
+  expect(positions.left).toBeLessThan(positions.right);
+  expect(positions.rightDot).toBeLessThan(positions.leftDot);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await section.screenshot({ path: `test-results/timeline-${info.project.name}.png` });
   await page.screenshot({ path: `test-results/recording-${info.project.name}.png` });
   // Native assets are bundled. In Vite keep only the local app server reachable while all sources are offline.
   await page.route('**/history-source?**', request => request.abort('internetdisconnected'));
@@ -77,7 +109,7 @@ test('record start-stop persists full GPS, factual report and preview across an 
   await page.locator('.recording-list__open').click();
   await expect(page.locator('.walk-report__preview')).toHaveJSProperty('complete', true);
   await expect(page.locator('.walk-report h3')).toContainText('Санкт-Петербург');
-  await expect(page.locator('.walk-report__source')).toHaveCount(1);
+  await expect(page.locator('.walk-timeline__card')).toHaveCount(2);
 });
 
 test('GPS profile fits the recording sheet and survives reload', async ({ page }) => {
@@ -217,7 +249,8 @@ test('changing a filter removes the old discovery and a stalled source cannot ke
   await page.clock.fastForward(21000);
   await expect(page.locator('.app__header-meta')).toContainText('Ищем точки');
   await page.clock.fastForward(71000);
-  await expect(page.locator('.app__header-meta')).toContainText('Поиск занял слишком много времени');
+  await expect(page.locator('.app__header-meta')).toContainText('Не удалось обновить места');
+  await expect(page.locator('.app__header-meta').getByRole('button', { name: 'Повторить' })).toBeVisible();
   await expect(page.locator('.poi-marker')).toHaveCount(0);
 });
 

@@ -5,6 +5,10 @@ import type { RecordedWalk } from '../../domain/RecordedWalk';
 import { recordedWalkPath, hasRecordedMovement, walkPreview } from '../../domain/walkPreview';
 import { haversineMeters } from '../../shared/geo';
 import { MapTileCache } from '../../infrastructure/persistence/mapTileCache';
+import { walkPathSpans, walkSections } from '../../domain/walkSections';
+import { walkSpeedSpans } from '../../domain/walkSpeed';
+import { paintWalkSpeed } from './recordingSpeedLayer';
+import { WalkSpeedLegend } from './WalkSpeedLegend';
 
 const tiles = new MapTileCache();
 
@@ -13,8 +17,13 @@ export function RecordedWalkMap({ walk }: { walk: RecordedWalk }) {
   const container = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [showSpeed, setShowSpeed] = useState(false);
   const path = recordedWalkPath(walk);
-  const pathKey = JSON.stringify(path);
+  const sections = walk.sections ?? walkSections(path);
+  const spans = walkPathSpans(path, sections);
+  const pathKey = JSON.stringify([path, spans]);
+  const speedLayer = useRef<L.LayerGroup | null>(null);
+  const routeLayer = useRef<L.LayerGroup | null>(null);
   useEffect(() => {
     setReady(false); setFailed(false);
     if (!container.current || !path.length) return;
@@ -23,19 +32,45 @@ export function RecordedWalkMap({ walk }: { walk: RecordedWalk }) {
     const controller = new AbortController();
     const layer = new ReportTiles(controller.signal, () => setReady(true), () => setFailed(true));
     layer.addTo(map);
-    paintRecording(map, path);
+    const route = L.layerGroup().addTo(map);
+    const speed = L.layerGroup().addTo(map);
+    routeLayer.current = route;
+    speedLayer.current = speed;
+    paintRecording(map, path, spans, route);
     const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(container.current);
-    return () => { observer.disconnect(); controller.abort(); map.remove(); };
+    return () => {
+      routeLayer.current = null;
+      speedLayer.current = null;
+      observer.disconnect();
+      controller.abort();
+      map.remove();
+    };
   // Geometry, rather than optional description updates, owns map lifetime and network requests.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walk.id, pathKey]);
-  return <div className="walk-report-map" role="region" aria-label="Карта записанной прогулки">
-    <img className="walk-report__preview" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(walkPreview(path))}`}
-      alt="Сохранённая схема записи" hidden={ready} />
-    <div ref={container} className="walk-report-map__canvas" style={{ opacity: ready ? 1 : 0 }} />
-    {!ready && <span className="walk-report-map__notice">{failed ? 'Карта района недоступна. Показана сохранённая схема.' : path.length ? 'Загружаем карту района…' : 'Местоположение не записано.'}</span>}
-  </div>;
+  useEffect(() => {
+    const overlay = speedLayer.current;
+    if (!overlay) return;
+    routeLayer.current?.eachLayer(layer => {
+      if (layer instanceof L.Polyline) layer.setStyle({ opacity: showSpeed ? 0 : 1 });
+    });
+    overlay.clearLayers();
+    if (showSpeed) paintWalkSpeed(overlay, walkSpeedSpans(walk.points));
+  }, [showSpeed, walk.points, pathKey]);
+  return <>
+    {hasRecordedMovement(walk.points) && <button type="button" className="journey-link"
+      aria-pressed={showSpeed} onClick={() => setShowSpeed(value => !value)}>Карта скорости</button>}
+    <div className="walk-report-map" role="region" aria-label="Карта записанной прогулки">
+    <img className="walk-report__preview" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(walkPreview(path, sections))}`}
+      alt="Сохранённая схема записи" hidden={ready || showSpeed} />
+    <div ref={container} className="walk-report-map__canvas" style={{ opacity: ready || showSpeed ? 1 : 0 }} />
+    {!ready && <span className="walk-report-map__notice">{failed
+      ? showSpeed ? 'Карта района недоступна. Показаны данные скорости.' : 'Карта района недоступна. Показана сохранённая схема.'
+      : path.length ? 'Загружаем карту района…' : 'Местоположение не записано.'}</span>}
+    </div>
+    {showSpeed && <WalkSpeedLegend />}
+  </>;
 }
 
 class ReportTiles extends L.TileLayer {
@@ -58,11 +93,14 @@ class ReportTiles extends L.TileLayer {
   }
 }
 
-function paintRecording(map: L.Map, path: { lat: number; lng: number }[]): void {
+function paintRecording(map: L.Map, path: { lat: number; lng: number }[], spans: ReturnType<typeof walkPathSpans>, route: L.LayerGroup): void {
   const points = path.map(point => L.latLng(point.lat, point.lng));
   const movement = hasRecordedMovement(path);
   if (movement) {
-    L.polyline(points, { color: '#317559', weight: 5 }).addTo(map);
+    for (const { start, end, gap } of spans) {
+      L.polyline(points.slice(start, end + 1), gap
+        ? { color: '#536b62', weight: 3, dashArray: '5 7' } : { color: '#317559', weight: 5 }).addTo(route);
+    }
     map.fitBounds(L.latLngBounds(points), { padding: [32, 32], maxZoom: 18 });
   } else map.setView(points[0], 17);
   const closed = movement && haversineMeters(path[0], path.at(-1)!) <= 8;

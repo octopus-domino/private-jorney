@@ -1,5 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import './recording.test';
+import './speed.test';
 import './moscow-data.test';
 import './building-footprints.test';
 import './ready-walks.test';

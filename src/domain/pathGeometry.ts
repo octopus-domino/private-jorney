@@ -3,6 +3,7 @@ import type { TrackPoint } from './RecordedWalk';
 import { haversineMeters } from '../shared/geo';
 
 const METERS_PER_DEGREE = 111320;
+export const MAX_GPS_GAP_MS = 120000;
 export interface Projection extends GeoPoint { distance: number; fraction: number; cross: number }
 
 /** Projects locally in meters, preserving the sign needed to distinguish the left and right sides. */
@@ -27,6 +28,22 @@ export function locateAlongPath(point: GeoPoint, path: GeoPoint[]) {
     progress += length;
   }
   return best;
+}
+
+/** Removes isolated lateral GPS drift only where several neighbouring fixes support a straight course. */
+export function correctTrackJitter(points: TrackPoint[]): TrackPoint[] {
+  return points.map((point, index) => {
+    const before = points[index - 1], after = points[index + 1];
+    const first = points[index - 2], last = points[index + 2];
+    if (!first || !last || point.accuracy < 10 || last.timestamp - first.timestamp > 120000) return point;
+    const baseline = projectToSegment(point, first, last);
+    const leading = projectToSegment(before, first, last), trailing = projectToSegment(after, first, last);
+    const projection = projectToSegment(point, before, after);
+    if (leading.distance > 5 || trailing.distance > 5 || baseline.fraction <= leading.fraction
+      || baseline.fraction >= trailing.fraction || projection.fraction < 0.1 || projection.fraction > 0.9
+      || projection.distance < 6 || projection.distance > Math.min(30, point.accuracy)) return point;
+    return { ...point, lat: projection.lat, lng: projection.lng };
+  });
 }
 
 /** Spatial thinning bounds post-walk CPU work while retaining corners and chronological order. */

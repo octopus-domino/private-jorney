@@ -8,10 +8,14 @@ const historySchema = z.object({ excerpt: z.string(), sourceUrl: z.string().url(
 const placeSchema = z.object({ poi: z.object({ id: z.string(), name: z.string(), lat: z.number().finite(), lng: z.number().finite(),
   categoryIds: z.array(z.string()), facts: z.array(z.string()), source: z.enum(['overpass', 'manual', 'entry', 'historical-house', 'mystic-place']) }).passthrough(),
   side: z.enum(['left', 'right', 'nearby']), progressMeters: z.number().finite(), history: historySchema.optional(), photoDataUrl: z.string().optional() });
+const sectionSchema = z.object({ from: z.string(), to: z.string(), street: z.string().optional(),
+  startMeters: z.number().finite().nonnegative(), endMeters: z.number().finite(), gpsGap: z.boolean().optional() })
+  .refine(section => section.endMeters > section.startMeters);
 const schema = z.object({ id: z.string(), title: z.string(), startedAt: z.number(), endedAt: z.number(),
   points: z.array(z.object({ lat: z.number().finite(), lng: z.number().finite(), accuracy: z.number(), timestamp: z.number() })),
   distanceMeters: z.number(), places: z.array(placeSchema), paragraphs: z.array(z.string()), previewSvg: z.string(),
-  status: z.enum(['saved', 'partial', 'ready']), interrupted: z.boolean() }).passthrough();
+  status: z.enum(['saved', 'partial', 'ready']), interrupted: z.boolean(),
+  sections: z.array(sectionSchema).optional().catch(undefined) }).passthrough();
 
 /** IndexedDB keeps full tracks and saved illustrations outside the small synchronous localStorage quota. */
 export class IndexedWalkRecordingRepository implements RecordedWalkRepository {

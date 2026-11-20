@@ -12,7 +12,7 @@ const MAX_BATCH_POINTS = 50;
 /** Fetches a bounded walking corridor after stop; GPS callbacks never trigger a network request. */
 export class TrackCorridorRepository {
   private readonly cache = new QueryCache<RoadWay[]>({ ttlMs: 86400000, maxEntries: 8,
-    persist: true, storageKey: 'private-walks/cache/road-corridors/v1' });
+    persist: true, storageKey: 'private-walks/cache/road-corridors/v2' });
 
   constructor(private readonly read = readExternalPage) {}
 
@@ -20,8 +20,13 @@ export class TrackCorridorRepository {
   async roads(points: TrackPoint[], signal?: AbortSignal): Promise<RoadWay[]> {
     const sampled = thinTrack(points, 25, 200);
     const ways: RoadWay[] = [];
-    for (let start = 0; start < sampled.length - 1; start += MAX_BATCH_POINTS - 1)
-      ways.push(...await this.batch(sampled.slice(start, start + MAX_BATCH_POINTS), signal));
+    let failure: unknown;
+    for (let start = 0; start < sampled.length - 1; start += MAX_BATCH_POINTS - 1) {
+      if (signal?.aborted) break;
+      try { ways.push(...await this.batch(sampled.slice(start, start + MAX_BATCH_POINTS), signal)); }
+      catch (error) { failure ??= error; }
+    }
+    if (!ways.length && failure) throw failure;
     return [...new Map(ways.map(way => [way.id, way])).values()];
   }
 
@@ -29,7 +34,7 @@ export class TrackCorridorRepository {
     const coordinates = points.map(point => `${point.lat.toFixed(5)},${point.lng.toFixed(5)}`).join(',');
     return this.cache.getAbortable(coordinates, async abort => {
       const url = new URL('https://overpass-api.de/api/interpreter');
-      url.searchParams.set('data', `[out:json][timeout:20];way[highway][highway!~"^(motorway|motorway_link|trunk|trunk_link|construction|proposed)$"](around:90,${coordinates});out geom 500;`);
+      url.searchParams.set('data', `[out:json][timeout:15];way[highway][highway!~"^(motorway|motorway_link|trunk|trunk_link|construction|proposed)$"](around:90,${coordinates});out geom 900;`);
       const payload: unknown = JSON.parse(await this.read(url.href, abort));
       const parsed = z.object({ elements: z.array(z.unknown()), remark: z.string().optional() }).parse(payload);
       if (parsed.remark) throw new Error(parsed.remark);

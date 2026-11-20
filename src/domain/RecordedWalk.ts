@@ -11,10 +11,14 @@ export interface RecordedPlace {
   poi: Poi; side: 'left' | 'right' | 'nearby'; progressMeters: number;
   history?: PlaceHistory; photoDataUrl?: string;
 }
+export interface RecordedWalkSection {
+  from: string; to: string; street?: string; startMeters: number; endMeters: number; gpsGap?: boolean;
+}
 export interface RecordedWalk {
   id: string; title: string; city?: string; startedAt: number; endedAt: number;
   points: TrackPoint[]; matchedPath?: { lat: number; lng: number }[];
   distanceMeters: number; places: RecordedPlace[]; paragraphs: string[]; previewSvg: string;
   status: 'saved' | 'partial' | 'ready'; interrupted: boolean;
+  sections?: RecordedWalkSection[];
   graph?: { matchedSamples: number; sourceSamples: number; crossings: number };
 }

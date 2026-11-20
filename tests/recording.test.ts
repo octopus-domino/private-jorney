@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WalkGraph, type RoadWay } from '../src/domain/walkGraph';
 import { WalkMapMatcher } from '../src/domain/walkMapMatcher';
-import { locateAlongPath, countRevisits } from '../src/domain/pathGeometry';
+import { locateAlongPath, countRevisits, correctTrackJitter } from '../src/domain/pathGeometry';
 import { acceptsTrackPoint } from '../src/domain/trackQuality';
 import { initialWalk, walkParagraphs } from '../src/domain/walkStory';
+import { walkPathSpans, walkSections } from '../src/domain/walkSections';
 import { RecordedWalkService } from '../src/application/use-cases/recordedWalkService';
 import { RecordedWalkEnricher } from '../src/application/use-cases/enrichRecordedWalk';
 import { CodocAreaPoiRepository } from '../src/infrastructure/api/codocAreaPoiRepository';
@@ -61,6 +62,77 @@ test('sequence matching resists one noisy fix near a disconnected parallel stree
   const matched = new WalkMapMatcher(graph, origin.lat).match([fix(origin.lat, origin.lng), noisy, fix(corner.lat, corner.lng, 120000)]);
   assert.equal(matched.matchedSamples, 3);
   assert.ok(matched.path.every(point => Math.abs(point.lat - origin.lat) < 0.00001));
+});
+
+test('alternating sidewalk fixes stay on one side and sustained movement crosses at the mapped crossing', () => {
+  const sidewalk = (lat: number) => [0, .001, .002].map(offset => ({ lat, lng: origin.lng + offset }));
+  const south = sidewalk(origin.lat), northSide = sidewalk(origin.lat + .00021);
+  const graph = new WalkGraph([
+    { id: 10, nodes: [1, 2, 3], geometry: south, tags: { footway: 'sidewalk' } },
+    { id: 11, nodes: [4, 5, 6], geometry: northSide, tags: { footway: 'sidewalk' } },
+    { id: 12, nodes: [2, 5], geometry: [south[1], northSide[1]], tags: { footway: 'crossing' } },
+  ]);
+  const matcher = new WalkMapMatcher(graph, origin.lat);
+  assert.equal(graph.shortestPath('osm:2', 'osm:5', 100, false), null);
+  const noisy = [0, 0, .00021, 0, .00021, 0, 0, 0].map((latitude, index) =>
+    fix(origin.lat + latitude, origin.lng + index * .00023, index * 13000));
+  const noCrossing = matcher.match(noisy).path;
+  assert.ok(noCrossing.every(point => Math.abs(point.lat - origin.lat) < 1e-6), JSON.stringify(noCrossing));
+
+  const crossing = [
+    fix(origin.lat, origin.lng), fix(origin.lat, origin.lng + .00055, 25000),
+    fix(origin.lat, origin.lng + .001, 45000), fix(northSide[1].lat, northSide[1].lng, 65000),
+    fix(northSide[1].lat, northSide[1].lng + .0005, 85000), fix(northSide[2].lat, northSide[2].lng, 110000),
+  ];
+  const path = matcher.match(crossing).path;
+  const changes = path.slice(1).flatMap((point, index) => Math.abs(point.lat - path[index].lat) > 1e-6
+    ? [[path[index], point]] : []);
+  assert.deepEqual(changes, [[south[1], northSide[1]]]);
+});
+
+test('isolated inaccurate lateral drift is corrected without changing the stored fix', () => {
+  const observations = [0, 0, .00017, 0, 0].map((latitude, index) =>
+    ({ ...fix(origin.lat + latitude, origin.lng + index * .00035, index * 10000), accuracy: 23 }));
+  const corrected = correctTrackJitter(observations);
+  assert.equal(corrected[2].lat, origin.lat);
+  assert.equal(observations[2].lat, origin.lat + .00017);
+});
+
+test('the timeline uses real graph intersections and shows recording gaps separately', () => {
+  const graph = new WalkGraph([
+    { id: 21, nodes: [11, 12], geometry: [origin, corner], tags: { name: 'Первая улица' } },
+    { id: 22, nodes: [12, 13], geometry: [corner, north], tags: { name: 'Вторая улица' } },
+  ]);
+  const matcher = new WalkMapMatcher(graph, origin.lat);
+  const matched = matcher.match(raw.points!);
+  const sections = walkSections(matched.path, matched.steps);
+  assert.deepEqual(sections.map(section => [section.from, section.to, section.street]), [
+    ['Место выхода', 'Первая улица × Вторая улица', 'Первая улица'],
+    ['Первая улица × Вторая улица', 'Финиш', 'Вторая улица'],
+  ]);
+  const sparse = [raw.points![0], raw.points![1], { ...raw.points![2], timestamp: raw.points![1].timestamp + 140000 }];
+  const gap = matcher.match(sparse);
+  const gapSections = walkSections(gap.path, gap.steps);
+  assert.equal(gapSections.at(-1)?.gpsGap, true);
+  assert.equal(gapSections.at(-1)?.street, undefined);
+  assert.deepEqual(walkPathSpans(gap.path, gapSections).map(span => span.gap), [false, true]);
+});
+
+test('the incomplete report is committed while graph and discovery requests are still pending', async () => {
+  let finish!: (roads: RoadWay[]) => void;
+  const routeData = new Promise<RoadWay[]>(resolve => { finish = resolve; });
+  const place: Poi = { ...origin, id: 'early-house', name: 'Первый дом', source: 'historical-house', categoryIds: ['historical-house'], facts: [] };
+  const saved: RecordedWalk[] = [];
+  const service = new RecordedWalkEnricher({ roads: async () => routeData }, { search: async params => {
+    params.onPartial?.([place]); return [place];
+  } }, { supports: () => false, lookup: async () => null }, { search: async () => [], reverse: async () => ({ label: 'Адрес' }) });
+  const result = service.enrich(initialWalk(raw), [], async value => { saved.push(value); });
+  await new Promise(done => setImmediate(done));
+  assert.ok(saved[0].sections?.length);
+  assert.equal(saved[0].places.length, 0);
+  assert.ok(saved.some(value => value.places[0]?.poi.id === place.id));
+  finish(roads);
+  assert.equal((await result).status, 'ready');
 });
 
 test('houses are ordered along the path and left/right changes with walking direction', () => {

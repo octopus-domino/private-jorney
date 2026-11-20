@@ -1,7 +1,8 @@
-import type { RecordedWalk } from './RecordedWalk';
+import type { RecordedWalk, RecordedWalkSection } from './RecordedWalk';
 import type { GeoPoint } from './walkGraph';
 import { haversineMeters } from '../shared/geo';
-import { thinTrack } from './pathGeometry';
+import { correctTrackJitter, thinTrack } from './pathGeometry';
+import { walkPathSpans, walkSections } from './walkSections';
 
 const WIDTH = 640, HEIGHT = 360, PADDING = 35;
 const METERS_PER_DEGREE = 111320, MIN_VIEW_METERS = 100, SAME_PLACE_METERS = 8;
@@ -14,11 +15,11 @@ export function hasRecordedMovement(path: GeoPoint[]): boolean {
 /** Old archives also get corrected previews; empty matched geometry never hides the original GPS journal. */
 export function recordedWalkPath(walk: Pick<RecordedWalk, 'points' | 'matchedPath'>): GeoPoint[] {
   return hasRecordedMovement(walk.points) && walk.matchedPath?.length
-    ? walk.matchedPath : thinTrack(walk.points);
+    ? walk.matchedPath : thinTrack(correctTrackJitter(walk.points));
 }
 
 /** A self-contained offline fallback, centred in both axes and without stretching GPS jitter into a route. */
-export function walkPreview(path: GeoPoint[]): string {
+export function walkPreview(path: GeoPoint[], sections = walkSections(path)): string {
   const start = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}"><rect width="${WIDTH}" height="${HEIGHT}" rx="24" fill="#eef2eb"/>`;
   if (!path.length) return start + '<text x="320" y="180" text-anchor="middle" fill="#365849">Нет GPS-точек</text></svg>';
   const coordinates = project(path);
@@ -26,8 +27,16 @@ export function walkPreview(path: GeoPoint[]): string {
     + '<text x="320" y="225" text-anchor="middle" fill="#365849" font-size="16">Перемещение не зафиксировано</text></svg>';
   const first = coordinates[0], last = coordinates.at(-1)!;
   const closed = haversineMeters(path[0], path.at(-1)!) <= SAME_PLACE_METERS;
-  return start + `<path d="M${coordinates.map(point => point.join(',')).join(' L')}" fill="none" stroke="#317559" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`
+  return start + spansSvg(coordinates, path, sections)
     + marker(first[0], first[1], closed) + (closed ? '' : `<circle cx="${last[0]}" cy="${last[1]}" r="7" fill="#ca8349" stroke="white" stroke-width="3"/>`) + '</svg>';
+}
+
+function spansSvg(coordinates: number[][], path: GeoPoint[], sections: RecordedWalkSection[]): string {
+  return walkPathSpans(path, sections).map(({ start, end, gap }) => {
+    const line = coordinates.slice(start, end + 1).map(point => point.join(',')).join(' L');
+    return `<path d="M${line}" fill="none" stroke="${gap ? '#536b62' : '#317559'}" stroke-width="${gap ? 3 : 5}"`
+      + (gap ? ' stroke-dasharray="5 7"' : '') + ' stroke-linecap="round" stroke-linejoin="round"/>';
+  }).join('');
 }
 
 function marker(x: number, y: number, closed: boolean): string {
