@@ -3,7 +3,7 @@ import type { PlaceHistoryRepository } from '../../application/ports/PlaceHistor
 import { containsBuildingPoint } from '../../domain/BuildingFootprint';
 import { haversineMeters } from '../../shared/geo';
 import { CitywallsLocalIndex } from './citywallsLocalIndex';
-import { CitywallsHistoryRepository } from './citywallsHistoryRepository';
+import { CitywallsHistoryRepository, citywallsHouseId } from './citywallsHistoryRepository';
 import { OsmBuildingFootprints } from './osmBuildingFootprints';
 import { citywallsSquares, matchCitywallsPoint, type CitywallsPoint } from './citywallsMap';
 
@@ -17,7 +17,7 @@ export class IndexedCitywallsHistoryRepository implements PlaceHistoryRepository
 
   async lookup(poi: Poi, signal?: AbortSignal) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (/^https:\/\/www\.citywalls\.ru\/house\d+\.html/.test(poi.details?.sourceUrl ?? '')) return this.history.lookup(poi, signal);
+    if (citywallsHouseId(poi.details?.sourceUrl)) return this.history.lookup(poi, signal);
     const points = await this.index.points();
     const matched = await this.match(poi, points, signal);
     if (!matched) return null;

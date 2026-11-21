@@ -10,6 +10,10 @@ import { CitywallsMapCache } from './citywallsMapCache';
 import type { CitywallsPoint } from './citywallsMap';
 
 const SITE = 'https://www.citywalls.ru';
+export function citywallsHouseId(url?: string): string | undefined {
+  return /^https?:\/\/(?:www\.)?citywalls\.ru\/house(\d+)\.html(?:[?#].*)?$/i.exec(url ?? '')?.[1];
+}
+
 export class CitywallsHistoryRepository implements PlaceHistoryRepository {
   private readonly squares = new Map<number, ReturnType<typeof parseCitywallsPoints>>();
   private sid: string | null = null;
@@ -21,8 +25,8 @@ export class CitywallsHistoryRepository implements PlaceHistoryRepository {
 
   /** Keeps text/title rerenders from restarting the same building lookup. */
   requestKey(poi: Poi): string {
-    const id = poi.details?.sourceUrl?.match(/^https:\/\/www\.citywalls\.ru\/house(\d+)\.html/);
-    return id ? `house:${id[1]}` : `${poi.lat}:${poi.lng}:${poi.details?.sourceUrl ?? ''}`;
+    const id = citywallsHouseId(poi.details?.sourceUrl);
+    return id ? `house:${id}` : `${poi.lat}:${poi.lng}:${poi.details?.sourceUrl ?? ''}`;
   }
 
   supports(poi: Poi): boolean { return citywallsSquares(poi).length > 0; }
@@ -59,7 +63,7 @@ export class CitywallsHistoryRepository implements PlaceHistoryRepository {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     const cached = this.cache.get(key);
     if (cached) return cached;
-    let houseId = poi.details?.sourceUrl?.match(/^https?:\/\/(?:www\.)?citywalls\.ru\/house(\d+)\.html(?:\?.*)?$/i)?.[1];
+    let houseId = citywallsHouseId(poi.details?.sourceUrl);
     let matchedTitle: string | undefined;
     if (!houseId) {
       const squareIds = citywallsSquares(poi);

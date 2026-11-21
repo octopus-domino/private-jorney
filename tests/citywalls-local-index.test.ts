@@ -8,6 +8,20 @@ import { CitywallsHistoryRepository } from '../src/infrastructure/api/citywallsH
 import { resolveBuildingFootprint, type BuildingFootprint } from '../src/domain/BuildingFootprint';
 import { gpsMode, GPS_MODES } from '../src/domain/GpsMode';
 
+test('a legacy HTTP house reference opens the canonical HTTPS page without using the index', async () => {
+  Object.assign(globalThis, { DOMParser });
+  const index = new CitywallsLocalIndex(async () => { throw new Error('Index should not be needed'); });
+  const history = new CitywallsHistoryRepository(async url => {
+    assert.equal(url, 'https://www.citywalls.ru/house126.html');
+    return '<meta name="description" content="A historical building at the intersection of two streets">';
+  });
+  const result = await new IndexedCitywallsHistoryRepository(index, history).lookup({
+    id: 'legacy', lat: 59.9362, lng: 30.2702, name: 'House', source: 'manual', categoryIds: [], facts: [],
+    details: { sourceUrl: 'http://www.citywalls.ru/house126.html' },
+  });
+  assert.equal(result?.sourceUrl, 'https://www.citywalls.ru/house126.html');
+});
+
 test('bundled Citywalls ID is stable across distant wings and reads only the direct house page once', async () => {
   Object.assign(globalThis, { DOMParser });
   const building: BuildingFootprint = { id: 'long', address: '', polygons: [[[
